@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HealthShare — Hospital Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Credential modal — shown after registering a doctor or emergency staff -->
+<div class="modal-overlay" id="cred-modal" hidden>
+  <div class="modal-card">
+    <p class="modal-title" id="cred-modal-title">New account created</p>
+    <p class="modal-body">Share these credentials with <strong id="cred-name"></strong>. The temporary password <em>cannot be retrieved</em> after closing this window.</p>
+    <div class="cred-row"><span class="cred-label">User ID</span><span class="cred-val mono" id="cred-user-id"></span></div>
+    <div class="cred-row" id="cred-token-row" hidden><span class="cred-label">Emergency token</span><span class="cred-val mono" id="cred-token"></span></div>
+    <div class="cred-row"><span class="cred-label">Temp password</span><span class="cred-val mono" id="cred-password"></span></div>
+    <p class="modal-note">They should change this password on first login.</p>
+    <button class="btn-primary full" id="btn-close-cred-modal">Done — I've noted these credentials</button>
+  </div>
+</div>
+
+<section class="screen active" id="screen-hospital-admin">
+  <header class="app-header">
+    <div class="app-header-left">
+      <span class="app-brand">HealthShare</span>
+      <span class="app-role">Hospital admin</span>
+    </div>
+    <button class="link-logout" data-target="login.html">Log out</button>
+  </header>
+
+  <div class="app-body">
+    <div class="welcome-banner">
+      <div>
+        <!-- Populated from session -->
+        <p class="welcome-title" id="ha-facility-name">Loading…</p>
+        <p class="welcome-sub">Admin: <span id="ha-admin-name">—</span> · Facility ID <span class="mono" id="ha-facility-id">—</span></p>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card"><p class="stat-num" id="ha-stat-doctors">—</p><p class="stat-label">Registered doctors</p></div>
+      <div class="stat-card"><p class="stat-num" id="ha-stat-emergency">—</p><p class="stat-label">Emergency staff</p></div>
+      <div class="stat-card"><p class="stat-num" id="ha-stat-alerts">0</p><p class="stat-label">Open security alerts</p></div>
+    </div>
+
+    <div class="tab-row" role="tablist">
+      <button class="tab-btn active" data-tab="ha-register-doctor">Register doctor</button>
+      <button class="tab-btn" data-tab="ha-emergency-staff">Emergency staff</button>
+      <button class="tab-btn" data-tab="ha-doctor-list">Doctor list</button>
+      <button class="tab-btn" data-tab="ha-emergency-list">Emergency list</button>
+      <button class="tab-btn" data-tab="ha-audit">Audit / security</button>
+    </div>
+
+    <div class="two-col">
+
+      <!-- ── Register doctor ── -->
+      <div class="tab-pane active" id="ha-register-doctor">
+        <div class="panel">
+          <p class="panel-title">Register a doctor</p>
+          <label class="field-label" for="ha-doc-name">Full name</label>
+          <input class="field-input" id="ha-doc-name" type="text" placeholder="e.g. Dr. Susan Kiptoo">
+          <div class="field-row">
+            <div class="field-col">
+              <label class="field-label" for="ha-doc-license">License number</label>
+              <input class="field-input" id="ha-doc-license" type="text" placeholder="KMPDC/12345">
+            </div>
+            <div class="field-col">
+              <label class="field-label" for="ha-doc-spec">Specialization</label>
+              <select class="field-input" id="ha-doc-spec">
+                <option>General practice</option>
+                <option>Pediatrics</option>
+                <option>Cardiology</option>
+                <option>Obstetrics &amp; gynaecology</option>
+                <option>Surgery</option>
+              </select>
+            </div>
+          </div>
+          <p class="auth-error" id="doc-reg-error" hidden></p>
+          <button class="btn-primary full" id="btn-register-doctor">Register doctor</button>
+        </div>
+      </div>
+
+      <!-- ── Register emergency personnel ── -->
+      <div class="tab-pane" id="ha-emergency-staff">
+        <div class="panel">
+          <p class="panel-title">Register emergency personnel</p>
+          <div class="field-row">
+            <div class="field-col">
+              <label class="field-label" for="ha-em-name">Full name</label>
+              <input class="field-input" id="ha-em-name" type="text" placeholder="e.g. P. Mutua">
+            </div>
+            <div class="field-col">
+              <label class="field-label" for="ha-em-role">Role</label>
+              <select class="field-input" id="ha-em-role">
+                <option>Paramedic</option>
+                <option>Triage nurse</option>
+                <option>Emergency physician</option>
+              </select>
+            </div>
+          </div>
+          <p class="modal-note" style="margin-bottom:12px;">An emergency token and temporary password will be generated on registration.</p>
+          <p class="auth-error" id="em-reg-error" hidden></p>
+          <button class="btn-primary full" id="btn-register-emergency">Register emergency personnel</button>
+        </div>
+      </div>
+
+      <!-- ── Doctor list ── -->
+      <div class="tab-pane" id="ha-doctor-list">
+        <div class="panel">
+          <p class="panel-title">Registered doctors</p>
+          <table class="data-table">
+            <thead><tr><th>Name</th><th>Specialization</th><th>License</th><th>Staff ID</th></tr></thead>
+            <tbody id="doctor-list-tbody">
+              <tr><td colspan="4" class="empty-cell">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── Emergency personnel list ── -->
+      <div class="tab-pane" id="ha-emergency-list">
+        <div class="panel">
+          <p class="panel-title">Emergency personnel</p>
+          <table class="data-table">
+            <thead><tr><th>Name</th><th>Role</th><th>Staff ID</th><th>Token</th></tr></thead>
+            <tbody id="emergency-list-tbody">
+              <tr><td colspan="4" class="empty-cell">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── Audit / security ── -->
+      <div class="tab-pane" id="ha-audit">
+        <div class="panel">
+          <p class="panel-title">Recent security events</p>
+          <div id="ha-audit-list">
+            <p class="empty-cell">Loading…</p>
+          </div>
+          <a href="#" class="view-full-link">View full report &rarr;</a>
+        </div>
+      </div>
+
+      <!-- Always-visible side panel -->
+      <div class="panel ha-side-panel">
+        <p class="panel-title">Recent security events</p>
+        <div id="ha-side-audit-list">
+          <p class="empty-cell">Loading…</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

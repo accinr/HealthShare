@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HealthShare — Login / Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* ── Role hint badge ── */
+  .role-hint {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: #f0f4ff; border: 1px solid #c7d4f5;
+    border-radius: 8px; padding: 10px 12px;
+    margin-bottom: 14px; font-size: 12px; line-height: 1.5;
+    color: #3a4a7a;
+  }
+  .role-hint-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .role-hint strong { display: block; margin-bottom: 2px; font-size: 12px; }
+
+  /* ── Debug panel (shown on PHP errors) ── */
+  .debug-box {
+    background: #fff8e1; border: 1px solid #f0c040;
+    border-radius: 8px; padding: 10px 12px;
+    font-size: 11px; font-family: monospace;
+    color: #5a4000; margin-top: 8px; white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* ── Success card ── */
+  .hid-result {
+    background: #edfaf3; border: 1px solid #6fcf97;
+    border-radius: 10px; padding: 18px 16px; margin-top: 14px;
+  }
+  .hid-label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: #2d7a4f; margin-bottom: 6px; }
+  .hid-value { font-size: 1.5rem; font-weight: 700; letter-spacing: .08em;
+    color: #1a5c38; margin-bottom: 8px; }
+  .hid-note  { font-size: 12px; color: #3a7a56; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<section class="screen active" id="screen-login">
+  <div class="auth-wrap">
+    <div class="auth-card">
+
+      <div class="brand">
+        <div class="brand-mark">H+</div>
+        <div class="brand-name">HealthShare</div>
+      </div>
+      <p class="auth-tagline">Kenya national health records portal</p>
+
+      <div class="seg-toggle" role="tablist">
+        <button class="seg-btn active" data-pane="pane-login"    role="tab">Log in</button>
+        <button class="seg-btn"        data-pane="pane-register" role="tab">Register</button>
+      </div>
+
+      <!-- ══════════════════════════════════
+           LOGIN PANE
+      ══════════════════════════════════ -->
+      <div class="auth-pane active" id="pane-login">
+
+        <label class="field-label" for="login-role">I am a…</label>
+        <select id="login-role" class="field-input">
+          <option value="patient">Patient</option>
+          <option value="doctor">Doctor</option>
+          <option value="hospital-admin">Hospital admin</option>
+          <option value="system-admin">System admin</option>
+          <option value="emergency">Emergency personnel</option>
+        </select>
+
+        <!-- Dynamic hint per role -->
+        <div class="role-hint" id="login-role-hint">
+          <span class="role-hint-icon">🪪</span>
+          <div id="login-hint-text">
+            <strong>Patient login</strong>
+            Use the Health ID you received when you registered (e.g. KE-HID-08213).
+          </div>
+        </div>
+
+        <label class="field-label" for="login-id">
+          <span id="login-id-label">Health ID</span>
+        </label>
+        <input class="field-input mono" id="login-id" type="text"
+               placeholder="KE-HID-XXXXX" autocomplete="username" spellcheck="false">
+
+        <label class="field-label" for="login-pass">Password</label>
+        <input class="field-input" id="login-pass" type="password"
+               placeholder="••••••••" autocomplete="current-password">
+
+        <p class="auth-error" id="login-error" hidden></p>
+        <div class="debug-box" id="login-debug" hidden></div>
+
+        <button class="btn-primary full" id="btn-login">Log in</button>
+
+        <p class="auth-switch" id="login-register-link">
+          New patient? <a href="#" data-pane="pane-register" class="link-switch">Register here</a>
+        </p>
+      </div>
+
+      <!-- ══════════════════════════════════
+           REGISTER PANE  (patients only)
+      ══════════════════════════════════ -->
+      <div class="auth-pane" id="pane-register">
+
+        <div class="role-hint">
+          <span class="role-hint-icon">ℹ️</span>
+          <div>
+            <strong>Patient self-registration only</strong>
+            Doctors, nurses, and emergency staff are registered by their hospital admin — not here.
+          </div>
+        </div>
+
+        <label class="field-label" for="reg-name">Full name</label>
+        <input class="field-input" id="reg-name" type="text"
+               placeholder="As it appears on your national ID">
+
+        <label class="field-label" for="reg-national-id">National ID number</label>
+        <input class="field-input mono" id="reg-national-id" type="text"
+               placeholder="e.g. 34218765">
+
+        <label class="field-label" for="reg-phone">Phone number</label>
+        <input class="field-input" id="reg-phone" type="tel"
+               placeholder="07XX XXX XXX">
+
+        <label class="field-label" for="reg-pass">Create password</label>
+        <input class="field-input" id="reg-pass" type="password"
+               placeholder="Min. 6 characters">
+
+        <p class="auth-error" id="reg-error" hidden></p>
+        <div class="debug-box" id="reg-debug" hidden></div>
+
+        <button class="btn-primary full" id="btn-register">Create account</button>
+
+        <!-- Success card — shown after successful registration -->
+        <div class="hid-result" id="hid-result" hidden>
+          <p class="hid-label">✓ Account created — your Health ID</p>
+          <p class="hid-value mono" id="hid-value">KE-HID-00000</p>
+          <p class="hid-note">
+            This ID links your records across every registered facility in Kenya.
+            <strong>Write it down</strong> — you will need it every time you log in.
+          </p>
+          <button class="btn-primary full" id="btn-go-login" style="margin-top:14px;">
+            Go to login →
+          </button>
+        </div>
+
+        <p class="auth-switch">
+          Already registered? <a href="#" data-pane="pane-login" class="link-switch">Log in</a>
+        </p>
+      </div>
+
+    </div><!-- /auth-card -->
+  </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

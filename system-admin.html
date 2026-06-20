@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HealthShare — System Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Credential modal for newly registered hospital admins -->
+<div class="modal-overlay" id="sa-cred-modal" hidden>
+  <div class="modal-card">
+    <p class="modal-title">Hospital admin account created</p>
+    <p class="modal-body">Share these credentials with <strong id="sa-cred-name"></strong>. The temporary password <em>cannot be retrieved</em> after closing.</p>
+    <div class="cred-row"><span class="cred-label">User ID</span><span class="cred-val mono" id="sa-cred-user-id"></span></div>
+    <div class="cred-row"><span class="cred-label">Facility</span><span class="cred-val" id="sa-cred-facility"></span></div>
+    <div class="cred-row"><span class="cred-label">Temp password</span><span class="cred-val mono" id="sa-cred-password"></span></div>
+    <p class="modal-note">They should log in with role "Hospital admin" and change this password.</p>
+    <button class="btn-primary full" id="btn-close-sa-cred">Done — I've noted these credentials</button>
+  </div>
+</div>
+
+<section class="screen active" id="screen-system-admin">
+  <header class="app-header">
+    <div class="app-header-left">
+      <span class="app-brand">HealthShare</span>
+      <span class="app-role">System admin</span>
+    </div>
+    <button class="link-logout" data-target="login.html">Log out</button>
+  </header>
+
+  <div class="app-body">
+    <div class="welcome-banner">
+      <div>
+        <p class="welcome-title">National system administration</p>
+        <p class="welcome-sub">Admin: <span id="sa-admin-name">—</span> · Access level <span class="mono">ROOT</span></p>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card"><p class="stat-num" id="sa-stat-facilities">—</p><p class="stat-label">Registered facilities</p></div>
+      <div class="stat-card"><p class="stat-num" id="sa-stat-policies">4</p><p class="stat-label">Active policies</p></div>
+      <div class="stat-card"><p class="stat-num" id="sa-stat-admins">—</p><p class="stat-label">Hospital admins</p></div>
+    </div>
+
+    <div class="sidebar-layout">
+      <nav class="side-nav">
+        <button class="side-nav-btn active" data-side="sa-policies">Policies</button>
+        <button class="side-nav-btn" data-side="sa-facilities">Facilities</button>
+        <button class="side-nav-btn" data-side="sa-admins">Hospital admins</button>
+        <button class="side-nav-btn" data-side="sa-audit">Audit logs</button>
+        <button class="side-nav-btn" data-side="sa-monitoring">Monitoring</button>
+        <button class="side-nav-btn" data-side="sa-blockchain">Blockchain</button>
+      </nav>
+
+      <div class="side-content">
+
+        <!-- ── Policies + register facility ── -->
+        <div class="side-pane active" id="sa-policies">
+          <div class="panel">
+            <p class="panel-title">Configure access policies</p>
+            <div class="policy-row">
+              <span>Emergency access (break-glass)</span>
+              <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+            </div>
+            <div class="policy-row">
+              <span>Consent required for record access</span>
+              <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+            </div>
+            <div class="policy-row">
+              <span>MFA enforcement</span>
+              <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+            </div>
+            <div class="policy-row">
+              <span>Role-based access control</span>
+              <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+            </div>
+            <button class="btn-primary full">Apply policies</button>
+            <div class="chain-status">
+              <i class="dot dot-sage"></i> Blockchain integrity verified
+            </div>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">Register health facility</p>
+            <div class="field-row">
+              <div class="field-col">
+                <label class="field-label" for="sa-fac-name">Facility name</label>
+                <input class="field-input" id="sa-fac-name" type="text" placeholder="e.g. Embu Level 5 Hospital">
+              </div>
+              <div class="field-col">
+                <label class="field-label" for="sa-fac-city">City / county</label>
+                <input class="field-input" id="sa-fac-city" type="text" placeholder="e.g. Embu">
+              </div>
+            </div>
+            <p class="auth-error" id="fac-reg-error" hidden></p>
+            <button class="btn-primary full" id="btn-register-facility">Register facility</button>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">System monitoring</p>
+            <div class="monitor-row">
+              <div class="monitor-item"><i class="dot dot-sage"></i><span>Auth service</span><span class="monitor-status">Operational</span></div>
+              <div class="monitor-item"><i class="dot dot-sage"></i><span>Blockchain</span><span class="monitor-status">Operational</span></div>
+              <div class="monitor-item"><i class="dot dot-sage"></i><span>Encrypted store (IPFS)</span><span class="monitor-status">Operational</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Facilities list ── -->
+        <div class="side-pane" id="sa-facilities">
+          <div class="panel">
+            <p class="panel-title">Registered facilities</p>
+            <table class="data-table">
+              <thead><tr><th>Facility</th><th>County</th><th>Facility ID</th><th>Status</th></tr></thead>
+              <tbody id="facilities-tbody">
+                <tr><td colspan="4" class="empty-cell">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Hospital admins: list + register form ── -->
+        <div class="side-pane" id="sa-admins">
+          <div class="panel">
+            <p class="panel-title">Register hospital admin</p>
+            <label class="field-label" for="sa-adm-name">Full name</label>
+            <input class="field-input" id="sa-adm-name" type="text" placeholder="e.g. J. Wafula">
+            <label class="field-label" for="sa-adm-facility">Assign to facility</label>
+            <select class="field-input" id="sa-adm-facility">
+              <option value="">— select facility —</option>
+              <!-- Populated dynamically from registered facilities -->
+            </select>
+            <p class="auth-error" id="adm-reg-error" hidden></p>
+            <button class="btn-primary full" id="btn-register-hospital-admin">Create admin account</button>
+          </div>
+
+          <div class="panel">
+            <p class="panel-title">Hospital admins</p>
+            <table class="data-table">
+              <thead><tr><th>Name</th><th>Facility</th><th>Staff ID</th></tr></thead>
+              <tbody id="admins-tbody">
+                <tr><td colspan="3" class="empty-cell">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Audit logs ── -->
+        <div class="side-pane" id="sa-audit">
+          <div class="panel">
+            <p class="panel-title">Audit logs</p>
+            <table class="data-table">
+              <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Hash</th></tr></thead>
+              <tbody id="audit-tbody">
+                <tr><td colspan="4" class="empty-cell">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Monitoring ── -->
+        <div class="side-pane" id="sa-monitoring">
+          <div class="panel">
+            <p class="panel-title">Monitoring overview</p>
+            <div class="monitor-row">
+              <div class="monitor-item"><i class="dot dot-sage"></i><span>Auth service</span><span class="monitor-status">Operational</span></div>
+              <div class="monitor-item"><i class="dot dot-sage"></i><span>Blockchain</span><span class="monitor-status">Operational</span></div>
+              <div class="monitor-item"><i class="dot dot-sage"></i><span>Encrypted store (IPFS)</span><span class="monitor-status">Operational</span></div>
+              <div class="monitor-item"><i class="dot dot-amber"></i><span>Offline sync queue</span><span class="monitor-status">0 pending</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Blockchain ── -->
+        <div class="side-pane" id="sa-blockchain">
+          <div class="panel">
+            <p class="panel-title">Blockchain status</p>
+            <div class="chain-status">
+              <i class="dot dot-sage"></i> Network healthy
+            </div>
+            <p class="record-label" style="margin-top:1rem;">Latest anchored block</p>
+            <p class="record-value mono" id="sa-chain-block">—</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
