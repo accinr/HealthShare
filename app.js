@@ -1,12 +1,12 @@
 // ============================================================
-// HealthShare — app.js  (revised)
+// HealthShare — app.js
 // ============================================================
 
-// ── Robust fetch helpers (timeout + non-JSON error handling) ──
+// ── Fetch helpers ─────────────────────────────────────────────
 
 async function apiPost(url, data) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000); // 10s timeout
+  const timer = setTimeout(() => controller.abort(), 10000);
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -16,17 +16,11 @@ async function apiPost(url, data) {
     });
     clearTimeout(timer);
     const text = await res.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      // PHP returned HTML (error page) — surface it for debugging
-      return { ok: false, error: 'Server error — check debug info below.', _raw: text };
-    }
+    try { return JSON.parse(text); }
+    catch { return { ok: false, error: 'Server error — check debug info below.', _raw: text }; }
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') {
-      return { ok: false, error: 'Request timed out. Is XAMPP running?' };
-    }
+    if (err.name === 'AbortError') return { ok: false, error: 'Request timed out. Is XAMPP running?' };
     return { ok: false, error: 'Cannot reach server: ' + err.message };
   }
 }
@@ -52,25 +46,17 @@ function showError(el, msg, raw) {
   if (!el) return;
   el.textContent = msg;
   el.hidden = false;
-  // Show raw PHP output in a debug box if present
-  const debugId = el.id.replace('-error', '-debug');
-  const debugEl = document.getElementById(debugId);
+  const debugEl = document.getElementById(el.id.replace('-error', '-debug'));
   if (debugEl) {
-    if (raw) {
-      debugEl.textContent = 'Server response:\n' + raw.substring(0, 600);
-      debugEl.hidden = false;
-    } else {
-      debugEl.hidden = true;
-    }
+    if (raw) { debugEl.textContent = 'Server response:\n' + raw.substring(0, 600); debugEl.hidden = false; }
+    else debugEl.hidden = true;
   }
 }
 
 function clearError(el) {
   if (!el) return;
-  el.textContent = '';
-  el.hidden = true;
-  const debugId = el.id.replace('-error', '-debug');
-  const debugEl = document.getElementById(debugId);
+  el.textContent = ''; el.hidden = true;
+  const debugEl = document.getElementById(el.id.replace('-error', '-debug'));
   if (debugEl) debugEl.hidden = true;
 }
 
@@ -89,9 +75,7 @@ function formatDate(iso) {
 async function guardSession(expectedRole) {
   const data = await apiGet('get_session.php');
   if (!data.ok) { window.location.href = 'login.html'; return null; }
-  if (expectedRole && data.user.role !== expectedRole) {
-    window.location.href = 'login.html'; return null;
-  }
+  if (expectedRole && data.user.role !== expectedRole) { window.location.href = 'login.html'; return null; }
   return data.user;
 }
 
@@ -134,10 +118,8 @@ document.querySelectorAll('.link-switch').forEach(link => {
   link.addEventListener('click', e => {
     e.preventDefault();
     const pane = link.dataset.pane;
-    document.querySelectorAll('.seg-btn').forEach(b =>
-      b.classList.toggle('active', b.dataset.pane === pane));
-    document.querySelectorAll('.auth-pane').forEach(p =>
-      p.classList.toggle('active', p.id === pane));
+    document.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.pane === pane));
+    document.querySelectorAll('.auth-pane').forEach(p => p.classList.toggle('active', p.id === pane));
   });
 });
 
@@ -149,6 +131,9 @@ document.querySelectorAll('.side-nav-btn').forEach(btn => {
     document.querySelectorAll('.side-pane').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.side)?.classList.add('active');
+    if (btn.dataset.side === 'sa-blockchain') {
+      if (typeof loadBlockchainStatus === 'function') loadBlockchainStatus();
+    }
   });
 });
 
@@ -156,71 +141,48 @@ document.querySelectorAll('.side-nav-btn').forEach(btn => {
 //  LOGIN PAGE
 // ─────────────────────────────────────────────────────────────
 
-// Role-specific hint content
 const ROLE_HINTS = {
   'patient': {
-    icon: '🪪',
-    title: 'Patient login',
+    icon: '🪪', title: 'Patient login',
     body: 'Use the Health ID you received when you registered (KE-HID-XXXXX).',
-    idLabel: 'Health ID',
-    placeholder: 'KE-HID-XXXXX',
-    showRegister: true,
+    idLabel: 'Health ID', placeholder: 'KE-HID-XXXXX', showRegister: true,
   },
   'doctor': {
-    icon: '🩺',
-    title: 'Doctor login',
-    body: 'Use the Staff ID (KE-STF-XXXX) and temporary password given to you by your hospital admin. Change your password after first login.',
-    idLabel: 'Staff ID',
-    placeholder: 'KE-STF-XXXX',
-    showRegister: false,
+    icon: '🩺', title: 'Doctor login',
+    body: 'Use the Staff ID (KE-STF-XXXX) and temporary password given to you by your hospital admin.',
+    idLabel: 'Staff ID', placeholder: 'KE-STF-XXXX', showRegister: false,
   },
   'hospital-admin': {
-    icon: '🏥',
-    title: 'Hospital admin login',
+    icon: '🏥', title: 'Hospital admin login',
     body: 'Use the Admin ID (KE-ADM-XXXX) and temporary password issued by the system administrator.',
-    idLabel: 'Admin ID',
-    placeholder: 'KE-ADM-XXXX',
-    showRegister: false,
+    idLabel: 'Admin ID', placeholder: 'KE-ADM-XXXX', showRegister: false,
   },
   'system-admin': {
-    icon: '⚙️',
-    title: 'System admin login',
+    icon: '⚙️', title: 'System admin login',
     body: 'National-level access. Use your system admin ID (KE-SYS-XXXXX).',
-    idLabel: 'System Admin ID',
-    placeholder: 'KE-SYS-XXXXX',
-    showRegister: false,
+    idLabel: 'System Admin ID', placeholder: 'KE-SYS-XXXXX', showRegister: false,
   },
   'emergency': {
-    icon: '🚨',
-    title: 'Emergency personnel login',
-    body: 'Use the Staff ID (KE-EMG-XXXX) and credentials issued by your hospital admin. Your emergency token will be available on your dashboard.',
-    idLabel: 'Staff ID',
-    placeholder: 'KE-EMG-XXXX',
-    showRegister: false,
+    icon: '🚨', title: 'Emergency personnel login',
+    body: 'Use the Staff ID (KE-EMG-XXXX) and credentials issued by your hospital admin.',
+    idLabel: 'Staff ID', placeholder: 'KE-EMG-XXXX', showRegister: false,
   },
 };
 
 const loginRoleSelect = document.getElementById('login-role');
 if (loginRoleSelect) {
   function updateRoleHint() {
-    const role = loginRoleSelect.value;
-    const hint = ROLE_HINTS[role] || ROLE_HINTS['patient'];
-
-    document.getElementById('login-hint-text').innerHTML =
-      `<strong>${hint.title}</strong>${hint.body}`;
+    const hint = ROLE_HINTS[loginRoleSelect.value] || ROLE_HINTS['patient'];
+    document.getElementById('login-hint-text').innerHTML = `<strong>${hint.title}</strong>${hint.body}`;
     document.querySelector('.role-hint-icon').textContent = hint.icon;
     document.getElementById('login-id-label').textContent = hint.idLabel;
     document.getElementById('login-id').placeholder = hint.placeholder;
-
     const regLink = document.getElementById('login-register-link');
     if (regLink) regLink.hidden = !hint.showRegister;
   }
-
   loginRoleSelect.addEventListener('change', updateRoleHint);
-  updateRoleHint(); // run on load
+  updateRoleHint();
 }
-
-// ── Login submit ──────────────────────────────────────────────
 
 const btnLogin = document.getElementById('btn-login');
 if (btnLogin) {
@@ -229,43 +191,28 @@ if (btnLogin) {
     const user_id  = document.getElementById('login-id').value.trim().toUpperCase();
     const password = document.getElementById('login-pass').value;
     const errEl    = document.getElementById('login-error');
-
     clearError(errEl);
+    if (!user_id)  { showError(errEl, 'Please enter your User ID.'); return; }
+    if (!password) { showError(errEl, 'Please enter your password.'); return; }
 
-    if (!user_id)   { showError(errEl, 'Please enter your User ID.'); return; }
-    if (!password)  { showError(errEl, 'Please enter your password.'); return; }
-
-    btnLogin.disabled = true;
-    btnLogin.textContent = 'Logging in…';
-
+    btnLogin.disabled = true; btnLogin.textContent = 'Logging in…';
     const data = await apiPost('login.php', { user_id, password, role });
+    btnLogin.disabled = false; btnLogin.textContent = 'Log in';
 
-    btnLogin.disabled = false;
-    btnLogin.textContent = 'Log in';
+    if (!data.ok) { showError(errEl, data.error || 'Login failed.', data._raw); return; }
 
-    if (!data.ok) {
-      showError(errEl, data.error || 'Login failed.', data._raw);
-      return;
-    }
-
-    // Redirect based on actual role returned from session
     const pageMap = {
-      patient:        'patient.html',
-      doctor:         'doctor.html',
+      patient: 'patient.html', doctor: 'doctor.html',
       hospital_admin: 'hospital-admin.html',
-      system_admin:   'system-admin.html',
-      emergency:      'emergency.html',
+      system_admin: 'system-admin.html', emergency: 'emergency.html',
     };
     window.location.href = pageMap[data.user.role] || 'login.html';
   });
 
-  // Allow Enter key to submit
   document.getElementById('login-pass')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') btnLogin.click();
   });
 }
-
-// ── Patient registration ──────────────────────────────────────
 
 const btnRegister = document.getElementById('btn-register');
 if (btnRegister) {
@@ -275,46 +222,30 @@ if (btnRegister) {
     const phone       = document.getElementById('reg-phone').value.trim();
     const password    = document.getElementById('reg-pass').value;
     const errEl       = document.getElementById('reg-error');
-
     clearError(errEl);
-
     if (!full_name)   { showError(errEl, 'Please enter your full name.'); return; }
     if (!national_id) { showError(errEl, 'Please enter your national ID number.'); return; }
     if (!phone)       { showError(errEl, 'Please enter your phone number.'); return; }
     if (!password)    { showError(errEl, 'Please create a password.'); return; }
     if (password.length < 6) { showError(errEl, 'Password must be at least 6 characters.'); return; }
 
-    btnRegister.disabled = true;
-    btnRegister.textContent = 'Creating account…';
-
+    btnRegister.disabled = true; btnRegister.textContent = 'Creating account…';
     const data = await apiPost('register_patient.php', { full_name, national_id, phone, password });
+    btnRegister.disabled = false; btnRegister.textContent = 'Create account';
 
-    btnRegister.disabled = false;
-    btnRegister.textContent = 'Create account';
+    if (!data.ok) { showError(errEl, data.error || 'Registration failed.', data._raw); return; }
 
-    if (!data.ok) {
-      showError(errEl, data.error || 'Registration failed.', data._raw);
-      return;
-    }
-
-    // Success — show Health ID card
     document.getElementById('hid-value').textContent = data.health_id;
     document.getElementById('hid-result').hidden = false;
     btnRegister.hidden = true;
-
-    // Pre-fill the login form for convenience
     document.getElementById('login-id').value   = data.health_id;
     document.getElementById('login-role').value = 'patient';
     if (typeof updateRoleHint === 'function') updateRoleHint();
   });
 
   document.getElementById('btn-go-login')?.addEventListener('click', () => {
-    // Switch to login pane
-    document.querySelectorAll('.seg-btn').forEach(b =>
-      b.classList.toggle('active', b.dataset.pane === 'pane-login'));
-    document.querySelectorAll('.auth-pane').forEach(p =>
-      p.classList.toggle('active', p.id === 'pane-login'));
-    // Reset register form for next use
+    document.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.pane === 'pane-login'));
+    document.querySelectorAll('.auth-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-login'));
     document.getElementById('hid-result').hidden = true;
     btnRegister.hidden = false;
   });
@@ -323,23 +254,18 @@ if (btnRegister) {
 // ─────────────────────────────────────────────────────────────
 //  PATIENT PAGE
 // ─────────────────────────────────────────────────────────────
+
 if (document.getElementById('screen-patient')) {
   (async () => {
     const user = await guardSession('patient');
     if (!user) return;
-
     setText('patient-welcome-name', 'Welcome, ' + user.full_name);
     setText('patient-health-id', user.user_id);
     setText('stat-records', '0');
     setText('stat-prescriptions', '0');
     setText('patient-consent-count', '0');
-
     renderConsentList([]);
   })();
-
-  function generateOtp() {
-    return `${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`;
-  }
 
   function renderConsentList(consents) {
     const list  = document.getElementById('consent-list');
@@ -362,7 +288,7 @@ if (document.getElementById('screen-patient')) {
   }
 
   document.getElementById('btn-simulate-request')?.addEventListener('click', () => {
-    const otp = generateOtp();
+    const otp = `${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`;
     document.getElementById('patient-otp-flag').hidden = false;
     document.getElementById('pending-otp-card').hidden = false;
     document.getElementById('patient-otp-chip').textContent = otp;
@@ -386,11 +312,11 @@ if (document.getElementById('screen-patient')) {
 // ─────────────────────────────────────────────────────────────
 //  DOCTOR PAGE
 // ─────────────────────────────────────────────────────────────
+
 if (document.getElementById('screen-doctor')) {
   (async () => {
     const user = await guardSession('doctor');
     if (!user) return;
-
     setText('doctor-name', 'Dr. ' + user.full_name);
     setText('doctor-staff-id', user.user_id);
     setText('doctor-facility', user.facility_name || '—');
@@ -401,18 +327,33 @@ if (document.getElementById('screen-doctor')) {
 
   let _otp = null;
 
-  document.getElementById('btn-request-access')?.addEventListener('click', () => {
-    _otp = `${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`;
+  document.getElementById('btn-request-access')?.addEventListener('click', async () => {
+    const patientId = document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
+    if (!patientId) { alert('Please enter a patient Health ID first.'); return; }
+
+    const data = await apiPost('request_access.php', { patient_id: patientId });
+    if (!data.ok) {
+      const errEl = document.getElementById('otp-error');
+      errEl.textContent = data.error;
+      errEl.hidden = false;
+      return;
+    }
+
+    _otp = data.otp;
     document.getElementById('otp-request-card').hidden = false;
     const hint = document.getElementById('doctor-demo-otp-hint');
-    if (hint) hint.textContent = `Demo hint: the patient's code is ${_otp}`;
+    if (hint) hint.textContent = `Demo — patient OTP: ${_otp}`;
     document.getElementById('btn-request-access').disabled = true;
   });
 
-  document.getElementById('btn-verify-otp')?.addEventListener('click', () => {
-    const entered = document.getElementById('doctor-otp-input').value.trim();
-    const errEl   = document.getElementById('otp-error');
-    if (!_otp || entered !== _otp) { errEl.hidden = false; return; }
+  document.getElementById('btn-verify-otp')?.addEventListener('click', async () => {
+    const entered   = document.getElementById('doctor-otp-input').value.trim();
+    const patientId = document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
+    const errEl     = document.getElementById('otp-error');
+
+    const data = await apiPost('verify_otp.php', { patient_id: patientId, otp: entered });
+    if (!data.ok) { errEl.hidden = false; errEl.textContent = data.error; return; }
+
     errEl.hidden = true;
     document.getElementById('otp-request-card').hidden = true;
     document.getElementById('access-status-locked').hidden = true;
@@ -424,33 +365,53 @@ if (document.getElementById('screen-doctor')) {
       if (el) el.disabled = false;
     });
   });
+
+  // ── Submit clinical record ──
+  document.getElementById('btn-submit-record')?.addEventListener('click', async () => {
+    const patientId  = document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
+    const recordType = document.getElementById('record-type')?.value;
+    const notes      = document.getElementById('clinical-notes')?.value.trim();
+
+    if (!notes) { alert('Please enter clinical notes.'); return; }
+
+    const btn = document.getElementById('btn-submit-record');
+    btn.disabled = true; btn.textContent = 'Submitting…';
+
+    const data = await apiPost('submit_record.php', {
+      patient_id:  patientId,
+      record_type: recordType,
+      notes:       notes,
+    });
+
+    btn.disabled = false; btn.textContent = 'Submit record';
+
+    if (!data.ok) { alert('Error: ' + (data.error || 'Submission failed.')); return; }
+
+    alert(`Record submitted ✓\nIPFS CID: ${data.cid}\nBlockchain: ${data.blockchain ? 'Anchored ✓' : 'Pending'}`);
+    document.getElementById('clinical-notes').value = '';
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
 //  HOSPITAL ADMIN PAGE
 // ─────────────────────────────────────────────────────────────
+
 if (document.getElementById('screen-hospital-admin')) {
   (async () => {
     const user = await guardSession('hospital_admin');
     if (!user) return;
-
     setText('ha-facility-name', user.facility_name);
     setText('ha-admin-name', user.full_name);
     setText('ha-facility-id', user.facility_id);
-
     const stats = await apiGet('get_stats.php');
-    if (stats.ok) {
-      setText('ha-stat-doctors', stats.doctors);
-      setText('ha-stat-emergency', stats.emergency_personnel);
-    }
-
+    if (stats.ok) { setText('ha-stat-doctors', stats.doctors); setText('ha-stat-emergency', stats.emergency_personnel); }
     loadDoctors();
     loadEmergencyPersonnel();
     loadHAauditLog();
   })();
 
   async function loadDoctors() {
-    const data = await apiGet('get_doctors.php');
+    const data  = await apiGet('get_doctors.php');
     const tbody = document.getElementById('doctor-list-tbody');
     if (!tbody) return;
     tbody.innerHTML = (!data.ok || !data.doctors?.length)
@@ -462,7 +423,7 @@ if (document.getElementById('screen-hospital-admin')) {
   }
 
   async function loadEmergencyPersonnel() {
-    const data = await apiGet('get_emergency.php');
+    const data  = await apiGet('get_emergency.php');
     const tbody = document.getElementById('emergency-list-tbody');
     if (!tbody) return;
     tbody.innerHTML = (!data.ok || !data.personnel?.length)
@@ -504,8 +465,7 @@ if (document.getElementById('screen-hospital-admin')) {
 
   document.getElementById('btn-close-cred-modal')?.addEventListener('click', async () => {
     document.getElementById('cred-modal').hidden = true;
-    loadDoctors();
-    loadEmergencyPersonnel();
+    loadDoctors(); loadEmergencyPersonnel();
     const stats = await apiGet('get_stats.php');
     if (stats.ok) { setText('ha-stat-doctors', stats.doctors); setText('ha-stat-emergency', stats.emergency_personnel); }
   });
@@ -550,26 +510,21 @@ if (document.getElementById('screen-hospital-admin')) {
 // ─────────────────────────────────────────────────────────────
 //  SYSTEM ADMIN PAGE
 // ─────────────────────────────────────────────────────────────
+
 if (document.getElementById('screen-system-admin')) {
   (async () => {
     const user = await guardSession('system_admin');
     if (!user) return;
-
     setText('sa-admin-name', user.full_name);
-
     const stats = await apiGet('get_stats.php');
-    if (stats.ok) {
-      setText('sa-stat-facilities', stats.facilities);
-      setText('sa-stat-admins', stats.hospital_admins);
-    }
-
+    if (stats.ok) { setText('sa-stat-facilities', stats.facilities); setText('sa-stat-admins', stats.hospital_admins); }
     loadFacilities();
     loadAdmins();
     loadAuditLogs();
   })();
 
   async function loadFacilities() {
-    const data  = await apiGet('get_facilities.php');
+    const data   = await apiGet('get_facilities.php');
     const tbody  = document.getElementById('facilities-tbody');
     const select = document.getElementById('sa-adm-facility');
     const facs   = data.ok ? data.facilities : [];
@@ -583,7 +538,6 @@ if (document.getElementById('screen-system-admin')) {
             <td><span class="badge badge-sage">${f.status}</span></td>
           </tr>`).join('');
     }
-
     if (select) {
       select.innerHTML = '<option value="">— select facility —</option>';
       facs.forEach(f => {
@@ -657,13 +611,11 @@ if (document.getElementById('screen-system-admin')) {
     if (!data.ok) { showError(errEl, data.error, data._raw); return; }
     document.getElementById('sa-adm-name').value = '';
     document.getElementById('sa-adm-facility').value = '';
-
     setText('sa-cred-name', data.full_name);
     setText('sa-cred-user-id', data.staff_id);
     setText('sa-cred-facility', data.facility_name);
     setText('sa-cred-password', data.temp_password);
     document.getElementById('sa-cred-modal').hidden = false;
-
     await loadAdmins();
     const stats = await apiGet('get_stats.php');
     if (stats.ok) setText('sa-stat-admins', stats.hospital_admins);
@@ -677,6 +629,7 @@ if (document.getElementById('screen-system-admin')) {
 // ─────────────────────────────────────────────────────────────
 //  EMERGENCY PAGE
 // ─────────────────────────────────────────────────────────────
+
 if (document.getElementById('screen-emergency')) {
   let _emUser = null;
   const _accessLog = [];
@@ -697,12 +650,13 @@ if (document.getElementById('screen-emergency')) {
 
     const btn = document.getElementById('btn-breakglass');
     btn.disabled = true; btn.textContent = 'Accessing…';
-
     const data = await apiGet(`lookup_patient.php?id=${encodeURIComponent(patientId)}`);
-
     btn.disabled = false; btn.textContent = 'Trigger break-glass access';
 
     if (!data.ok) { showError(errEl, data.error || 'Patient not found.', data._raw); return; }
+
+    // Log on blockchain
+    apiPost('breakglass_log.php', { patient_id: patientId, reason });
 
     const p = data.patient;
     document.getElementById('emergency-locked-overlay').classList.add('hidden');
@@ -717,7 +671,10 @@ if (document.getElementById('screen-emergency')) {
     document.getElementById('breakglass-status-text').textContent = `Access logged at ${now} — patient notified`;
     document.getElementById('breakglass-status').hidden = false;
 
-    _accessLog.unshift({ time: new Date().toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'}), patient: patientId });
+    _accessLog.unshift({
+      time: new Date().toLocaleTimeString('en-KE', { hour:'2-digit', minute:'2-digit' }),
+      patient: patientId,
+    });
     const tbody = document.getElementById('em-log-tbody');
     if (tbody) {
       tbody.innerHTML = _accessLog.map(e => `<tr>

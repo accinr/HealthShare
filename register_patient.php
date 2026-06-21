@@ -50,5 +50,11 @@ try {
     $pdo->rollBack();
     json_err('Registration failed. Please try again.');
 }
+require_once __DIR__ . '/sidecar.php';
+sidecar_post('/registerPatient', [
+    'patientId' => $health_id,
+    'fullName'  => $full_name,
+    'phone'     => $phone,
+]);
 
 json_ok(['health_id' => $health_id]);

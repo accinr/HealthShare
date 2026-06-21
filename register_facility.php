@@ -30,5 +30,10 @@ db()->prepare(
 )->execute([$facility_id, $name, $county]);
 
 audit($sys_admin['user_id'], 'facility_registered', "$name ($facility_id) in $county");
-
+require_once __DIR__ . '/sidecar.php';
+sidecar_post('/auditLog', [
+    'actorId' => $sys_admin['user_id'],
+    'action'  => 'facility_registered',
+    'detail'  => "$name ($facility_id) in $county",
+]);
 json_ok(['facility_id' => $facility_id, 'name' => $name, 'county' => $county]);

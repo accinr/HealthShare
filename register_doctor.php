@@ -53,6 +53,16 @@ try {
     json_err('Registration failed. Please try again.');
 }
 
+// Record on blockchain
+require_once __DIR__ . '/sidecar.php';
+sidecar_post('/registerDoctor', [
+    'staffId'        => $staff_id,
+    'fullName'       => $full_name,
+    'licenseNo'      => $license_no,
+    'specialization' => $specialization,
+    'facilityId'     => $facility_id,
+]);
+
 json_ok([
     'staff_id'      => $staff_id,
     'temp_password' => $temp_password,

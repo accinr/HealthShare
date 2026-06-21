@@ -50,6 +50,18 @@ try {
     $pdo->rollBack();
     json_err('Registration failed. Please try again.');
 }
+require_once __DIR__ . '/sidecar.php';
+sidecar_post('/registerAdmin', [
+    'staffId'    => $staff_id,
+    'fullName'   => $full_name,
+    'facilityId' => $facility_id,
+]);
+require_once __DIR__ . '/sidecar.php';
+sidecar_post('/registerAdmin', [
+    'staffId'    => $staff_id,
+    'fullName'   => $full_name,
+    'facilityId' => $facility_id,
+]);
 
 json_ok([
     'staff_id'      => $staff_id,
