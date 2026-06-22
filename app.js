@@ -1,8 +1,21 @@
 // ============================================================
-// HealthShare — app.js
+// HealthShare — app.js  (live, no demo stubs)
 // ============================================================
 
 // ── Fetch helpers ─────────────────────────────────────────────
+// Auth uses a per-tab token (sessionStorage is isolated per browser tab,
+// unlike cookies which are shared by every tab). This lets one browser run
+// a doctor tab and a patient tab at the same time without either kicking
+// the other out.
+
+function authToken() {
+  return sessionStorage.getItem('authToken');
+}
+
+function authHeaders() {
+  const t = authToken();
+  return t ? { 'X-Auth-Token': t } : {};
+}
 
 async function apiPost(url, data) {
   const controller = new AbortController();
@@ -10,14 +23,14 @@ async function apiPost(url, data) {
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(data),
       signal: controller.signal,
     });
     clearTimeout(timer);
     const text = await res.text();
     try { return JSON.parse(text); }
-    catch { return { ok: false, error: 'Server error — check debug info below.', _raw: text }; }
+    catch { return { ok: false, error: 'Server error — check XAMPP is running.', _raw: text }; }
   } catch (err) {
     clearTimeout(timer);
     if (err.name === 'AbortError') return { ok: false, error: 'Request timed out. Is XAMPP running?' };
@@ -29,7 +42,7 @@ async function apiGet(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, { headers: authHeaders(), signal: controller.signal });
     clearTimeout(timer);
     const text = await res.text();
     try { return JSON.parse(text); }
@@ -70,6 +83,11 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-KE', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function formatDateTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-KE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 // ── Session guard ─────────────────────────────────────────────
 
 async function guardSession(expectedRole) {
@@ -84,6 +102,7 @@ async function guardSession(expectedRole) {
 document.querySelectorAll('.link-logout').forEach(btn => {
   btn.addEventListener('click', async () => {
     await apiPost('logout.php', {});
+    sessionStorage.removeItem('authToken');
     window.location.href = btn.dataset.target || 'login.html';
   });
 });
@@ -173,7 +192,7 @@ const loginRoleSelect = document.getElementById('login-role');
 if (loginRoleSelect) {
   function updateRoleHint() {
     const hint = ROLE_HINTS[loginRoleSelect.value] || ROLE_HINTS['patient'];
-    document.getElementById('login-hint-text').innerHTML = `<strong>${hint.title}</strong>${hint.body}`;
+    document.getElementById('login-hint-text').innerHTML = `<strong>${hint.title}</strong> — ${hint.body}`;
     document.querySelector('.role-hint-icon').textContent = hint.icon;
     document.getElementById('login-id-label').textContent = hint.idLabel;
     document.getElementById('login-id').placeholder = hint.placeholder;
@@ -200,6 +219,8 @@ if (btnLogin) {
     btnLogin.disabled = false; btnLogin.textContent = 'Log in';
 
     if (!data.ok) { showError(errEl, data.error || 'Login failed.', data._raw); return; }
+
+    if (data.token) sessionStorage.setItem('authToken', data.token);
 
     const pageMap = {
       patient: 'patient.html', doctor: 'doctor.html',
@@ -256,21 +277,65 @@ if (btnRegister) {
 // ─────────────────────────────────────────────────────────────
 
 if (document.getElementById('screen-patient')) {
+  let _patientUser = null;
+  let _otpPollTimer = null;
+
   (async () => {
-    const user = await guardSession('patient');
-    if (!user) return;
-    setText('patient-welcome-name', 'Welcome, ' + user.full_name);
-    setText('patient-health-id', user.user_id);
-    setText('stat-records', '0');
-    setText('stat-prescriptions', '0');
-    setText('patient-consent-count', '0');
-    renderConsentList([]);
+    _patientUser = await guardSession('patient');
+    if (!_patientUser) return;
+    setText('patient-welcome-name', 'Welcome, ' + _patientUser.full_name);
+    setText('patient-health-id', _patientUser.user_id);
+
+    // Load real stats
+    await refreshPatientStats();
+
+    // Load real records
+    await loadPatientRecords();
+
+    // Load real consents
+    await loadConsents();
+
+    // Load notifications
+    await loadNotifications();
+
+    // Start polling for pending OTP requests (every 5 seconds)
+    pollForOTP();
+    _otpPollTimer = setInterval(pollForOTP, 5000);
   })();
 
-  function renderConsentList(consents) {
+  async function refreshPatientStats() {
+    const data = await apiGet('get_patient_stats.php');
+    if (data.ok) {
+      setText('stat-records', data.records);
+      setText('stat-prescriptions', data.prescriptions);
+      setText('patient-consent-count', data.consents);
+    }
+  }
+
+  async function loadPatientRecords() {
+    const data   = await apiGet('get_records.php');
+    const tbody  = document.getElementById('records-tbody');
+    if (!tbody) return;
+    if (!data.ok || !data.records?.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No records on file yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.records.map(r => `
+      <tr>
+        <td>${formatDate(r.created_at)}</td>
+        <td>${r.facility_name || '—'}</td>
+        <td>${r.record_type}</td>
+        <td>${r.doctor_name}</td>
+        <td><span class="badge badge-sage">On file</span></td>
+      </tr>`).join('');
+  }
+
+  async function loadConsents() {
+    const data  = await apiGet('get_consents.php');
     const list  = document.getElementById('consent-list');
     const empty = document.getElementById('consent-empty');
     if (!list) return;
+    const consents = data.ok ? data.consents : [];
     list.innerHTML = '';
     empty.hidden = consents.length > 0;
     setText('patient-consent-count', consents.length);
@@ -279,34 +344,108 @@ if (document.getElementById('screen-patient')) {
       row.className = 'consent-row';
       row.innerHTML = `
         <div class="consent-info">
-          <p class="consent-name">${c.doctor_name}</p>
+          <p class="consent-name">${c.doctor_name} <span class="badge badge-sage">${c.specialization || ''}</span></p>
           <p class="consent-meta">${c.facility} · Granted ${formatDate(c.granted_at)}</p>
         </div>
-        <button class="btn-revoke">Revoke</button>`;
+        <button class="btn-revoke" data-doctor="${c.doctor_id}">Revoke</button>`;
       list.appendChild(row);
+    });
+    // Wire revoke buttons
+    list.querySelectorAll('.btn-revoke').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Revoking…';
+        const res = await apiPost('revoke_consent.php', { doctor_id: btn.dataset.doctor });
+        if (res.ok) {
+          await loadConsents();
+          await refreshPatientStats();
+          await loadNotifications();
+        } else {
+          btn.disabled = false; btn.textContent = 'Revoke';
+          alert('Error: ' + (res.error || 'Could not revoke.'));
+        }
+      });
     });
   }
 
-  document.getElementById('btn-simulate-request')?.addEventListener('click', () => {
-    const otp = `${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`;
-    document.getElementById('patient-otp-flag').hidden = false;
-    document.getElementById('pending-otp-card').hidden = false;
-    document.getElementById('patient-otp-chip').textContent = otp;
-    document.getElementById('btn-simulate-request').hidden = true;
-    document.getElementById('pending-doctor-name').textContent = 'Dr. [Requesting doctor]';
+  async function loadNotifications() {
+    const data  = await apiGet('get_notifications.php');
+    const panel = document.getElementById('notifications-panel');
+    if (!panel) return;
+    const notes = data.ok ? data.notifications : [];
+    if (!notes.length) {
+      panel.innerHTML = '<p class="empty-cell">No notifications yet.</p>';
+      return;
+    }
+    panel.innerHTML = notes.map(n => `
+      <div class="event-row">
+        <span style="font-size:1.2em">${n.icon}</span>
+        <div>
+          <p class="event-title">${n.label}</p>
+          <p class="event-meta">${n.detail || ''} · ${formatDateTime(n.time)}</p>
+        </div>
+      </div>`).join('');
+  }
+
+  // Poll for pending OTP requests
+  let _dismissedOtp = null; // remembers which OTP value the patient has already acknowledged
+
+  async function pollForOTP() {
+    const data = await apiGet('get_pending_otp.php');
+    const flag = document.getElementById('patient-otp-flag');
+    const card = document.getElementById('pending-otp-card');
+    if (!data.ok || !data.pending) {
+      _dismissedOtp = null; // reset once the old request is gone
+      if (flag) flag.hidden = true;
+      if (card) card.hidden = true;
+      return;
+    }
+    // If this exact OTP was already dismissed by the patient, keep it hidden
+    // but still flag that it's pending so they can re-open it if they want.
+    if (_dismissedOtp === data.otp) {
+      if (flag) flag.hidden = false;
+      if (card) card.hidden = true;
+      return;
+    }
+    // Show the OTP to the patient
+    if (flag) flag.hidden = false;
+    if (card) card.hidden = false;
+    setText('pending-doctor-name', 'Dr. ' + data.doctor_name);
+    const chip = document.getElementById('patient-otp-chip');
+    if (chip) {
+      // Format as "123 456"
+      const otp = data.otp.toString();
+      chip.textContent = otp.slice(0,3) + ' ' + otp.slice(3);
+    }
+  }
+
+  // Clicking the small banner re-opens the card if it was dismissed
+  document.getElementById('patient-otp-flag')?.addEventListener('click', () => {
+    _dismissedOtp = null;
+    pollForOTP();
   });
 
-  document.getElementById('btn-confirm-otp-issued')?.addEventListener('click', () => {
+  document.getElementById('btn-confirm-otp-issued')?.addEventListener('click', async () => {
+    // The patient has read the code aloud — just hide the banner locally.
+    // The OTP itself MUST remain valid in the database so the doctor can
+    // still submit it; this button never calls deny_otp.php.
+    const data = await apiGet('get_pending_otp.php');
+    if (data.ok && data.pending) _dismissedOtp = data.otp;
     document.getElementById('pending-otp-card').hidden = true;
-    document.getElementById('patient-otp-flag').hidden = true;
-    document.getElementById('btn-simulate-request').hidden = false;
   });
 
-  document.getElementById('btn-deny-otp')?.addEventListener('click', () => {
-    document.getElementById('pending-otp-card').hidden = true;
-    document.getElementById('patient-otp-flag').hidden = true;
-    document.getElementById('btn-simulate-request').hidden = false;
+  document.getElementById('btn-deny-otp')?.addEventListener('click', async () => {
+    const res = await apiPost('deny_otp.php', {});
+    if (res.ok) {
+      _dismissedOtp = null;
+      document.getElementById('pending-otp-card').hidden = true;
+      document.getElementById('patient-otp-flag').hidden = true;
+      await loadNotifications();
+    }
   });
+
+  // Remove simulate button — no longer needed
+  const simBtn = document.getElementById('btn-simulate-request');
+  if (simBtn) simBtn.remove();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -314,64 +453,218 @@ if (document.getElementById('screen-patient')) {
 // ─────────────────────────────────────────────────────────────
 
 if (document.getElementById('screen-doctor')) {
+  let _doctorUser = null;
+  let _currentPatientId = null;
+
   (async () => {
-    const user = await guardSession('doctor');
-    if (!user) return;
-    setText('doctor-name', 'Dr. ' + user.full_name);
-    setText('doctor-staff-id', user.user_id);
-    setText('doctor-facility', user.facility_name || '—');
-    setText('stat-patients-seen', '0');
-    setText('stat-records-today', '0');
-    setText('stat-pending-reviews', '0');
+    _doctorUser = await guardSession('doctor');
+    if (!_doctorUser) return;
+    setText('doctor-name', 'Dr. ' + _doctorUser.full_name);
+    setText('doctor-staff-id', _doctorUser.user_id);
+    setText('doctor-facility', _doctorUser.facility_name || '—');
+
+    // Load real stats
+    const stats = await apiGet('get_doctor_stats.php');
+    if (stats.ok) {
+      setText('stat-patients-seen', stats.patients_seen);
+      setText('stat-records-today', stats.records_today);
+      setText('stat-pending-reviews', stats.pending_reviews);
+    }
   })();
 
-  let _otp = null;
+  let _doctorOtpPollTimer = null;
+
+  function stopDoctorOtpPoll() {
+    if (_doctorOtpPollTimer) { clearInterval(_doctorOtpPollTimer); _doctorOtpPollTimer = null; }
+  }
+
+  function startDoctorOtpPoll(patientId) {
+    stopDoctorOtpPoll();
+    async function poll() {
+      const data = await apiGet('get_doctor_otp.php?patient_id=' + encodeURIComponent(patientId));
+      console.log('[DoctorOtpPoll]', patientId, data);
+      if (!data.ok || !data.pending) return; // keep polling until OTP appears or expires
+      // OTP is in DB — show it and auto-fill the input
+      const otp = data.otp.toString();
+      const chip = document.getElementById('doctor-otp-chip');
+      const display = document.getElementById('doctor-otp-display');
+      const input = document.getElementById('doctor-otp-input');
+      if (chip) chip.textContent = otp.slice(0, 3) + ' ' + otp.slice(3);
+      if (display) display.hidden = false;
+      if (input && !input.value) input.value = otp.slice(0, 3) + ' ' + otp.slice(3);
+      // Update expiry label
+      const expiry = document.getElementById('doctor-otp-expiry');
+      if (expiry && data.expires_at) {
+        const mins = Math.max(0, Math.round((new Date(data.expires_at) - Date.now()) / 60000));
+        expiry.textContent = `Expires in ~${mins} min`;
+      }
+      stopDoctorOtpPoll(); // found it — stop polling
+    }
+    poll(); // immediate first check
+    _doctorOtpPollTimer = setInterval(poll, 3000);
+  }
+
+  // Search patient — set current patient and reset UI state
+  function resetDoctorAccessState(patientId) {
+    stopDoctorOtpPoll();
+    _currentPatientId = patientId;
+    document.getElementById('access-status-locked').hidden = false;
+    document.getElementById('access-status-granted').hidden = true;
+    document.getElementById('otp-request-card').hidden = true;
+    const errEl = document.getElementById('otp-error');
+    if (errEl) errEl.hidden = true;
+    document.getElementById('record-locked-overlay')?.classList.remove('hidden');
+    document.getElementById('btn-request-access').disabled = false;
+    document.getElementById('btn-request-access').textContent = 'Request access';
+    const recSection = document.getElementById('doctor-records-section');
+    if (recSection) recSection.hidden = true;
+    const otpDisplay = document.getElementById('doctor-otp-display');
+    if (otpDisplay) otpDisplay.hidden = true;
+    const otpChip = document.getElementById('doctor-otp-chip');
+    if (otpChip) otpChip.textContent = '— —';
+    const otpInput = document.getElementById('doctor-otp-input');
+    if (otpInput) otpInput.value = '';
+    ['btn-view-records','btn-submit-diagnosis','btn-update-records',
+     'record-type','clinical-notes','btn-submit-record'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    });
+  }
+
+  document.getElementById('btn-doctor-search')?.addEventListener('click', () => {
+    const patientId = document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
+    if (!patientId) { alert('Please enter a patient Health ID.'); return; }
+    resetDoctorAccessState(patientId);
+  });
+
+  // Also trigger search on Enter key in the search field
+  document.getElementById('doctor-search-id')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-doctor-search')?.click();
+  });
 
   document.getElementById('btn-request-access')?.addEventListener('click', async () => {
-    const patientId = document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
+    // If doctor typed a patient ID but didn't click Search, still use it
+    const patientId = _currentPatientId || document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
     if (!patientId) { alert('Please enter a patient Health ID first.'); return; }
+    _currentPatientId = patientId;
+
+    const btn   = document.getElementById('btn-request-access');
+    const errEl = document.getElementById('otp-error');
+    if (errEl) errEl.hidden = true;
+    btn.disabled = true; btn.textContent = 'Sending request…';
 
     const data = await apiPost('request_access.php', { patient_id: patientId });
+
+    btn.disabled = false; btn.textContent = 'Request access';
+
     if (!data.ok) {
-      const errEl = document.getElementById('otp-error');
-      errEl.textContent = data.error;
-      errEl.hidden = false;
+      if (errEl) { errEl.textContent = data.error; errEl.hidden = false; }
       return;
     }
 
-    _otp = data.otp;
+    // Show OTP entry card with clear instructions
     document.getElementById('otp-request-card').hidden = false;
     const hint = document.getElementById('doctor-demo-otp-hint');
-    if (hint) hint.textContent = `Demo — patient OTP: ${_otp}`;
-    document.getElementById('btn-request-access').disabled = true;
+    if (hint) {
+      hint.textContent = '✓ Request sent — the access code will appear above automatically within a few seconds.';
+      hint.style.fontStyle = 'normal';
+      hint.style.color = '';
+    }
+    // Disable the request button so it can't be double-sent
+    btn.disabled = true;
+    btn.textContent = 'Request sent';
+
+    // Poll for the OTP — auto-fills the input and shows the chip once the
+    // patient has seen the request (OTP exists in DB = patient can see it)
+    startDoctorOtpPoll(patientId);
   });
 
   document.getElementById('btn-verify-otp')?.addEventListener('click', async () => {
     const entered   = document.getElementById('doctor-otp-input').value.trim();
-    const patientId = document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
+    const patientId = _currentPatientId || document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
     const errEl     = document.getElementById('otp-error');
+    if (errEl) errEl.hidden = true;
+
+    if (!entered) { if (errEl) { errEl.textContent = 'Please enter the OTP.'; errEl.hidden = false; } return; }
+
+    const btn = document.getElementById('btn-verify-otp');
+    btn.disabled = true; btn.textContent = 'Verifying…';
 
     const data = await apiPost('verify_otp.php', { patient_id: patientId, otp: entered });
-    if (!data.ok) { errEl.hidden = false; errEl.textContent = data.error; return; }
 
-    errEl.hidden = true;
+    btn.disabled = false; btn.textContent = 'Verify code';
+
+    if (!data.ok) {
+      if (errEl) { errEl.textContent = data.error; errEl.hidden = false; }
+      return;
+    }
+
+    // Grant access in the UI
+    stopDoctorOtpPoll();
+    if (errEl) errEl.hidden = true;
     document.getElementById('otp-request-card').hidden = true;
     document.getElementById('access-status-locked').hidden = true;
     document.getElementById('access-status-granted').hidden = false;
-    document.getElementById('record-locked-overlay').classList.add('hidden');
+    document.getElementById('record-locked-overlay')?.classList.add('hidden');
     ['btn-view-records','btn-submit-diagnosis','btn-update-records',
      'record-type','clinical-notes','btn-submit-record'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.disabled = false;
     });
+
+    // Load patient details
+    const pData = await apiGet('lookup_patient_doctor.php?id=' + encodeURIComponent(patientId));
+    if (pData.ok) {
+      setText('rec-name',      pData.patient.full_name);
+      setText('rec-hid',       pData.patient.user_id);
+      setText('rec-phone',     pData.patient.phone || '—');
+      setText('rec-blood',     pData.patient.blood_type || 'Not recorded');
+      setText('rec-allergies', pData.patient.allergies || 'None recorded');
+      setText('rec-facility',  _doctorUser?.facility_name || '—');
+    }
+
+    // Load and show the full record history table immediately
+    await loadDoctorPatientRecords(patientId);
+
+    // Update stats
+    const stats = await apiGet('get_doctor_stats.php');
+    if (stats.ok) {
+      setText('stat-patients-seen', stats.patients_seen);
+      setText('stat-records-today', stats.records_today);
+      setText('stat-pending-reviews', stats.pending_reviews);
+    }
   });
 
-  // ── Submit clinical record ──
+  async function loadDoctorPatientRecords(patientId) {
+    const section = document.getElementById('doctor-records-section');
+    const tbody   = document.getElementById('doctor-records-tbody');
+    if (!section || !tbody) return;
+    section.hidden = false;
+    const data = await apiGet('get_records.php?patient_id=' + encodeURIComponent(patientId));
+    if (!data.ok || !data.records?.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No records on file yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.records.map(r => `
+      <tr>
+        <td>${formatDate(r.created_at)}</td>
+        <td>${r.record_type}</td>
+        <td>${r.facility_name || '—'}</td>
+        <td>${r.doctor_name}</td>
+        <td class="mono">${r.cid || '—'}</td>
+      </tr>`).join('');
+  }
+
+  document.getElementById('btn-view-records')?.addEventListener('click', () => {
+    const patientId = _currentPatientId || document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
+    if (patientId) loadDoctorPatientRecords(patientId);
+  });
+
+  // Submit clinical record
   document.getElementById('btn-submit-record')?.addEventListener('click', async () => {
-    const patientId  = document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
+    const patientId  = _currentPatientId || document.getElementById('doctor-search-id')?.value.trim().toUpperCase();
     const recordType = document.getElementById('record-type')?.value;
     const notes      = document.getElementById('clinical-notes')?.value.trim();
-
     if (!notes) { alert('Please enter clinical notes.'); return; }
 
     const btn = document.getElementById('btn-submit-record');
@@ -387,8 +680,18 @@ if (document.getElementById('screen-doctor')) {
 
     if (!data.ok) { alert('Error: ' + (data.error || 'Submission failed.')); return; }
 
-    alert(`Record submitted ✓\nIPFS CID: ${data.cid}\nBlockchain: ${data.blockchain ? 'Anchored ✓' : 'Pending'}`);
+    const msg = data.ipfs_anchored
+      ? `Record submitted ✓\nIPFS CID: ${data.cid}\nBlockchain: ${data.blockchain ? 'Anchored ✓' : 'Saved locally (sidecar down)'}`
+      : `Record submitted ✓\nStored locally (IPFS/sidecar unreachable — will anchor when sidecar is back online)`;
+    alert(msg);
     document.getElementById('clinical-notes').value = '';
+
+    // Refresh stats and the records table so the new record appears immediately
+    const stats = await apiGet('get_doctor_stats.php');
+    if (stats.ok) {
+      setText('stat-records-today', stats.records_today);
+    }
+    if (patientId) await loadDoctorPatientRecords(patientId);
   });
 }
 
@@ -650,17 +953,17 @@ if (document.getElementById('screen-emergency')) {
 
     const btn = document.getElementById('btn-breakglass');
     btn.disabled = true; btn.textContent = 'Accessing…';
-    const data = await apiGet(`lookup_patient.php?id=${encodeURIComponent(patientId)}`);
+    const data = await apiGet(`lookup_patient.php?id=${encodeURIComponent(patientId)}&reason=${encodeURIComponent(reason)}`);
     btn.disabled = false; btn.textContent = 'Trigger break-glass access';
 
     if (!data.ok) { showError(errEl, data.error || 'Patient not found.', data._raw); return; }
 
-    // Log on blockchain
+    // Log on blockchain (non-fatal)
     apiPost('breakglass_log.php', { patient_id: patientId, reason });
 
     const p = data.patient;
-    document.getElementById('emergency-locked-overlay').classList.add('hidden');
-    document.getElementById('emergency-record-grid').classList.add('unlocked');
+    document.getElementById('emergency-locked-overlay')?.classList.add('hidden');
+    document.getElementById('emergency-record-grid')?.classList.add('unlocked');
     setText('em-rec-name',      p.full_name);
     setText('em-rec-hid',       p.user_id);
     setText('em-rec-phone',     p.phone || '—');
@@ -668,7 +971,7 @@ if (document.getElementById('screen-emergency')) {
     setText('em-rec-allergies', p.allergies  || 'None recorded');
 
     const now = new Date().toLocaleString('en-KE', { dateStyle:'medium', timeStyle:'short' });
-    document.getElementById('breakglass-status-text').textContent = `Access logged at ${now} — patient notified`;
+    setText('breakglass-status-text', `Access logged at ${now} — audit trail created`);
     document.getElementById('breakglass-status').hidden = false;
 
     _accessLog.unshift({

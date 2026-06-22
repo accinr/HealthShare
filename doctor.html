@@ -62,8 +62,18 @@
           <i class="dot dot-amber"></i>
           <p class="pending-title">Awaiting patient confirmation</p>
         </div>
-        <p class="pending-body">An OTP has been sent to the patient. Ask them for the code and enter it below.</p>
+        <p class="pending-body">The access code will appear below automatically once it is ready.</p>
         <p class="pending-help" id="doctor-demo-otp-hint"></p>
+
+        <!-- OTP display — shown once patient confirms -->
+        <div id="doctor-otp-display" hidden style="margin:12px 0;">
+          <p style="font-size:0.85em;color:#666;margin-bottom:6px;">Access code (confirmed by patient):</p>
+          <div class="otp-chip-row">
+            <div class="otp-chip" id="doctor-otp-chip">— —</div>
+            <span class="otp-chip-label" id="doctor-otp-expiry"></span>
+          </div>
+        </div>
+
         <div class="otp-entry-row">
           <input class="field-input mono otp-input" id="doctor-otp-input" type="text" placeholder="000 000" maxlength="7">
           <button class="btn-primary" id="btn-verify-otp">Verify code</button>
@@ -98,6 +108,19 @@
         <button class="btn-secondary" id="btn-submit-diagnosis" disabled>Submit diagnosis</button>
         <button class="btn-secondary" id="btn-update-records" disabled>Update records</button>
       </div>
+
+      <div id="doctor-records-section" hidden>
+        <p class="panel-title" style="margin-top:20px;">Patient record history</p>
+        <p class="panel-sub">All past records for this patient, from any facility or doctor.</p>
+        <table class="data-table">
+          <thead>
+            <tr><th>Date</th><th>Type</th><th>Facility</th><th>Doctor</th><th>IPFS CID</th></tr>
+          </thead>
+          <tbody id="doctor-records-tbody">
+            <tr><td colspan="5" class="empty-cell">No records on file yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div class="panel" id="submit-record-panel">
@@ -116,6 +139,6 @@
   </div>
 </section>
 
-<script src="app.js"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

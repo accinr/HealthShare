@@ -7,7 +7,8 @@ $user = require_role('system_admin', 'hospital_admin');
 
 if ($user['role'] === 'system_admin') {
     $stmt = db()->query(
-        'SELECT actor_id, action, detail, log_hash,
+        'SELECT id AS block_id, actor_id, actor_role, action, detail, record_id,
+                log_hash, previous_hash, current_hash, verification_status,
                 DATE_FORMAT(created_at, "%d %b %H:%i") AS time
          FROM audit_logs ORDER BY id DESC LIMIT 50'
     );
@@ -24,13 +25,16 @@ if ($user['role'] === 'system_admin') {
     $emps = db()->prepare('SELECT user_id FROM emergency_personnel WHERE facility_id = ?');
     $emps->execute([$facility_id]);
 
-    $ids = array_column($docs->fetchAll(), 'user_id')
-         + array_column($emps->fetchAll(), 'user_id');
+    $ids = array_merge(
+        array_column($docs->fetchAll(), 'user_id'),
+        array_column($emps->fetchAll(), 'user_id')
+    );
     $ids[] = $user['user_id'];
 
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $stmt = db()->prepare(
-        "SELECT actor_id, action, detail, log_hash,
+        "SELECT id AS block_id, actor_id, actor_role, action, detail, record_id,
+                log_hash, previous_hash, current_hash, verification_status,
                 DATE_FORMAT(created_at, '%d %b %H:%i') AS time
          FROM audit_logs WHERE actor_id IN ($placeholders)
          ORDER BY id DESC LIMIT 50"
@@ -38,4 +42,6 @@ if ($user['role'] === 'system_admin') {
     $stmt->execute(array_values($ids));
 }
 
-json_ok(['logs' => $stmt->fetchAll()]);
+// Chain integrity is a property of the whole ledger, not the filtered view
+// above, so this always covers every chained row regardless of role.
+json_ok(['logs' => $stmt->fetchAll(), 'chain' => verify_chain()]);

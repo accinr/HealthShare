@@ -99,9 +99,14 @@ CREATE TABLE IF NOT EXISTS consents (
 CREATE TABLE IF NOT EXISTS audit_logs (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   actor_id   VARCHAR(20)  NOT NULL,
+  actor_role VARCHAR(30)  NULL,
   action     VARCHAR(100) NOT NULL,
   detail     TEXT,
+  record_id  VARCHAR(40)  NULL,
   log_hash   VARCHAR(80),
+  previous_hash VARCHAR(64) NOT NULL DEFAULT '',
+  current_hash  VARCHAR(64) NOT NULL DEFAULT '',
+  verification_status ENUM('verified','tampered','legacy') NOT NULL DEFAULT 'legacy',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -117,3 +122,43 @@ VALUES ('KE-SYS-00001', 'system_admin', '$2y$12$RgWGgas6F3d0iKTtCg7c3ublmKB.CQeM
 
 INSERT IGNORE INTO system_admins (user_id, full_name)
 VALUES ('KE-SYS-00001', 'D. Cheruiyot');
+
+-- Genesis block — start of the audit hash chain (see helpers.php chain_hash()).
+-- INSERT IGNORE has no natural unique key to ignore on here, so guard with NOT EXISTS instead.
+INSERT INTO audit_logs (actor_id, actor_role, action, detail, record_id, log_hash, previous_hash, current_hash, verification_status, created_at)
+SELECT 'SYSTEM', 'system', 'genesis_block', 'Genesis block - start of verifiable hash chain', NULL,
+       '0xGENESIS', REPEAT('0', 64),
+       SHA2(CONCAT(REPEAT('0',64), '|SYSTEM|system|genesis_block|Genesis block - start of verifiable hash chain||', NOW()), 256),
+       'verified', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM audit_logs WHERE action = 'genesis_block');
+
+-- ─────────────────────────────────────────────────────────────
+--  OTP REQUESTS  (so patient can poll and see pending requests)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS otp_requests (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  patient_id VARCHAR(20) NOT NULL,
+  doctor_id  VARCHAR(20) NOT NULL,
+  otp        VARCHAR(10) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used       TINYINT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_patient_pending (patient_id, used, expires_at)
+);
+
+-- ─────────────────────────────────────────────────────────────
+--  AUTH TOKENS  (tab-isolated login — lets one browser run a doctor
+--  tab and a patient tab at the same time without one logging the
+--  other out, unlike plain cookie-based PHP sessions)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  token        VARCHAR(64) UNIQUE NOT NULL,
+  user_id      VARCHAR(20) NOT NULL,
+  role         VARCHAR(30) NOT NULL,
+  profile_json TEXT NOT NULL,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at   DATETIME NOT NULL,
+  INDEX idx_token (token),
+  INDEX idx_expiry (expires_at)
+);
