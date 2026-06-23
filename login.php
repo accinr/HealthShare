@@ -91,6 +91,13 @@ $session_user = [
 
 $token = issue_token($session_user);
 
-audit($user_id, 'login', 'Role: ' . $db_role);
+// Audit is non-critical: a schema mismatch must never prevent a valid login.
+// The token is already issued above; swallow any audit failure silently.
+try {
+    audit($user_id, 'login', 'Role: ' . $db_role);
+} catch (Throwable $e) {
+    // Audit failed (e.g. migration_chain_upgrade.sql not yet run) — log and continue.
+    error_log('audit() failed in login.php: ' . $e->getMessage());
+}
 
 json_ok(['user' => $session_user, 'token' => $token]);

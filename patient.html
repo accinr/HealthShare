@@ -41,13 +41,13 @@
       <p class="pending-body">
         <span class="mono" id="pending-doctor-name">Doctor</span> is requesting access to your records.
       </p>
-      <p class="pending-body">Read this code to the doctor only if you want to grant access. It expires in 5 minutes.</p>
-      <div class="otp-chip-row">
-        <div class="otp-chip" id="patient-otp-chip">— —</div>
-        <span class="otp-chip-label">Valid for 5 minutes</span>
+      <p class="pending-body">Approve to reveal your one-time access code, then share it with the doctor verbally. The request expires in 5 minutes if you don't respond.</p>
+      <div id="pending-otp-reveal" hidden style="margin:12px 0;padding:12px;background:var(--surface-alt,#f0ede6);border-radius:8px;text-align:center;">
+        <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Your one-time access code — share this with the doctor</p>
+        <p class="mono" id="pending-otp-code" style="font-size:28px;font-weight:700;letter-spacing:.15em;margin:0;"></p>
       </div>
       <div class="pending-actions">
-        <button class="btn-primary" id="btn-confirm-otp-issued">I've shared the code</button>
+        <button class="btn-primary" id="btn-confirm-otp-issued">Approve &amp; show code</button>
         <button class="btn-ghost" id="btn-deny-otp">Deny request</button>
       </div>
     </div>

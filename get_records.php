@@ -18,6 +18,11 @@ if ($user['role'] === 'doctor') {
     );
     $consent->execute([$patient_id, $user['user_id']]);
     if (!$consent->fetch()) json_err('No active consent for this patient.', 403);
+
+    // Log the view itself — this is a real cross-facility data-access event,
+    // distinct from record_submitted, and is one of the activity types the
+    // system-admin interoperability simulation reflects.
+    audit($user['user_id'], 'record_viewed', "Patient: $patient_id");
 }
 
 $stmt = db()->prepare(

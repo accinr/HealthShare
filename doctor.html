@@ -60,25 +60,19 @@
       <div class="otp-request-card" id="otp-request-card" hidden>
         <div class="pending-head">
           <i class="dot dot-amber"></i>
-          <p class="pending-title">Awaiting patient confirmation</p>
+          <p class="pending-title" id="otp-card-title">Awaiting patient approval</p>
         </div>
-        <p class="pending-body">The access code will appear below automatically once it is ready.</p>
+        <p class="pending-body">The patient has been notified and must approve this request from their own dashboard — access cannot be granted without that.</p>
         <p class="pending-help" id="doctor-demo-otp-hint"></p>
-
-        <!-- OTP display — shown once patient confirms -->
-        <div id="doctor-otp-display" hidden style="margin:12px 0;">
-          <p style="font-size:0.85em;color:#666;margin-bottom:6px;">Access code (confirmed by patient):</p>
-          <div class="otp-chip-row">
-            <div class="otp-chip" id="doctor-otp-chip">— —</div>
-            <span class="otp-chip-label" id="doctor-otp-expiry"></span>
+        <p class="pending-help" id="doctor-otp-status">Waiting for the patient to approve…</p>
+        <div id="doctor-otp-entry" hidden style="margin-top:12px;">
+          <p class="pending-body" style="margin-bottom:8px;">Patient approved. Enter the one-time code they share with you:</p>
+          <div class="search-row">
+            <input class="field-input mono" id="doctor-otp-input" type="text" maxlength="6" placeholder="6-digit code" style="letter-spacing:.15em;font-size:20px;text-align:center;">
+            <button class="btn-primary" id="btn-verify-otp">Verify</button>
           </div>
         </div>
-
-        <div class="otp-entry-row">
-          <input class="field-input mono otp-input" id="doctor-otp-input" type="text" placeholder="000 000" maxlength="7">
-          <button class="btn-primary" id="btn-verify-otp">Verify code</button>
-        </div>
-        <p class="otp-error" id="otp-error" hidden>That code doesn't match. Ask the patient to confirm and try again.</p>
+        <p class="otp-error" id="otp-error" hidden></p>
       </div>
 
       <div class="access-status granted" id="access-status-granted" hidden>

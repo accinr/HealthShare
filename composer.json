@@ -1,0 +1,7 @@
+{
+    "name": "mutua/healthshare",
+    "description": "Blockchain Interoperable Health Information Sharing System",
+    "require": {
+        "phpmailer/phpmailer": "^7.1"
+    }
+}
