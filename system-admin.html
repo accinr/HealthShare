@@ -19,6 +19,7 @@
     <div class="cred-row"><span class="cred-label">User ID</span><span class="cred-val mono" id="sa-cred-user-id"></span></div>
     <div class="cred-row"><span class="cred-label">Facility</span><span class="cred-val" id="sa-cred-facility"></span></div>
     <div class="cred-row"><span class="cred-label">Temp password</span><span class="cred-val mono" id="sa-cred-password"></span></div>
+    <p class="modal-note" id="sa-cred-email-note">Credentials have been emailed to the new admin.</p>
     <p class="modal-note">They should log in with role "Hospital admin" and change this password.</p>
     <button class="btn-primary full" id="btn-close-sa-cred">Done — I've noted these credentials</button>
   </div>
@@ -124,17 +125,19 @@
           </div>
         </div>
 
-        <!-- ── Hospital admins: list + register form ── -->
+        <!-- ── Hospital admins: list + register form (email field added) ── -->
         <div class="side-pane" id="sa-admins">
           <div class="panel">
             <p class="panel-title">Register hospital admin</p>
             <label class="field-label" for="sa-adm-name">Full name</label>
             <input class="field-input" id="sa-adm-name" type="text" placeholder="e.g. J. Wafula">
+            <label class="field-label" for="sa-adm-email">Email address</label>
+            <input class="field-input" id="sa-adm-email" type="email" placeholder="admin@hospital.ke">
             <label class="field-label" for="sa-adm-facility">Assign to facility</label>
             <select class="field-input" id="sa-adm-facility">
               <option value="">— select facility —</option>
-              <!-- Populated dynamically from registered facilities -->
             </select>
+            <p class="modal-note" style="margin-bottom:12px;">Login credentials will be emailed to the new admin automatically.</p>
             <p class="auth-error" id="adm-reg-error" hidden></p>
             <button class="btn-primary full" id="btn-register-hospital-admin">Create admin account</button>
           </div>
@@ -193,7 +196,7 @@
   </div>
 </section>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 <script src="blockchain.js"></script>
 </body>
 </html>

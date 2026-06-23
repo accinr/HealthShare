@@ -820,37 +820,51 @@ if (document.getElementById('screen-hospital-admin')) {
 
   document.getElementById('btn-register-doctor')?.addEventListener('click', async () => {
     const full_name      = document.getElementById('ha-doc-name').value.trim();
+    const email          = document.getElementById('ha-doc-email').value.trim();
     const license_no     = document.getElementById('ha-doc-license').value.trim();
     const specialization = document.getElementById('ha-doc-spec').value;
     const errEl          = document.getElementById('doc-reg-error');
     clearError(errEl);
     if (!full_name || !license_no) { showError(errEl, 'Full name and license number are required.'); return; }
+    if (!email) { showError(errEl, 'Email address is required.'); return; }
 
     const btn = document.getElementById('btn-register-doctor');
     btn.disabled = true; btn.textContent = 'Registering…';
-    const data = await apiPost('register_doctor.php', { full_name, license_no, specialization });
+    const data = await apiPost('register_doctor.php', { full_name, email, license_no, specialization });
     btn.disabled = false; btn.textContent = 'Register doctor';
 
     if (!data.ok) { showError(errEl, data.error, data._raw); return; }
     document.getElementById('ha-doc-name').value = '';
+    document.getElementById('ha-doc-email').value = '';
     document.getElementById('ha-doc-license').value = '';
+    const emailNote = document.getElementById('cred-email-note');
+    if (emailNote) emailNote.textContent = data.email_sent
+      ? `✓ Credentials emailed to ${email}.`
+      : `⚠ Email could not be sent — share credentials manually.`;
     showCredModal('Doctor account created', data.full_name, data.staff_id, data.temp_password);
   });
 
   document.getElementById('btn-register-emergency')?.addEventListener('click', async () => {
     const full_name = document.getElementById('ha-em-name').value.trim();
     const em_role   = document.getElementById('ha-em-role').value;
+    const email     = document.getElementById('ha-em-email').value.trim();
     const errEl     = document.getElementById('em-reg-error');
     clearError(errEl);
     if (!full_name) { showError(errEl, 'Full name is required.'); return; }
+    if (!email) { showError(errEl, 'Email address is required.'); return; }
 
     const btn = document.getElementById('btn-register-emergency');
     btn.disabled = true; btn.textContent = 'Registering…';
-    const data = await apiPost('register_emergency.php', { full_name, em_role });
+    const data = await apiPost('register_emergency.php', { full_name, em_role, email });
     btn.disabled = false; btn.textContent = 'Register emergency personnel';
 
     if (!data.ok) { showError(errEl, data.error, data._raw); return; }
     document.getElementById('ha-em-name').value = '';
+    document.getElementById('ha-em-email').value = '';
+    const emailNote = document.getElementById('cred-email-note');
+    if (emailNote) emailNote.textContent = data.email_sent
+      ? `✓ Credentials emailed to ${email}.`
+      : `⚠ Email could not be sent — share credentials manually.`;
     showCredModal('Emergency personnel account created', data.full_name, data.staff_id, data.temp_password, data.emergency_token);
   });
 }
@@ -946,19 +960,26 @@ if (document.getElementById('screen-system-admin')) {
 
   document.getElementById('btn-register-hospital-admin')?.addEventListener('click', async () => {
     const full_name   = document.getElementById('sa-adm-name').value.trim();
+    const email       = document.getElementById('sa-adm-email').value.trim();
     const facility_id = document.getElementById('sa-adm-facility').value;
     const errEl       = document.getElementById('adm-reg-error');
     clearError(errEl); errEl.style.color = '';
     if (!full_name || !facility_id) { showError(errEl, 'Full name and facility are required.'); return; }
+    if (!email) { showError(errEl, 'Email address is required.'); return; }
 
     const btn = document.getElementById('btn-register-hospital-admin');
     btn.disabled = true; btn.textContent = 'Creating account…';
-    const data = await apiPost('register_hospital_admin.php', { full_name, facility_id });
+    const data = await apiPost('register_hospital_admin.php', { full_name, email, facility_id });
     btn.disabled = false; btn.textContent = 'Create admin account';
 
     if (!data.ok) { showError(errEl, data.error, data._raw); return; }
     document.getElementById('sa-adm-name').value = '';
+    document.getElementById('sa-adm-email').value = '';
     document.getElementById('sa-adm-facility').value = '';
+    const saEmailNote = document.getElementById('sa-cred-email-note');
+    if (saEmailNote) saEmailNote.textContent = data.email_sent
+      ? `✓ Credentials emailed to ${email}.`
+      : `⚠ Email could not be sent — share credentials manually.`;
     setText('sa-cred-name', data.full_name);
     setText('sa-cred-user-id', data.staff_id);
     setText('sa-cred-facility', data.facility_name);
@@ -1033,4 +1054,95 @@ if (document.getElementById('screen-emergency')) {
       </tr>`).join('');
     }
   });
+}
+// ─────────────────────────────────────────────────────────────
+//  CHANGE PASSWORD — shared helper used by hospital_admin,
+//  doctor, and emergency pages.
+//  Each page has its own IDs; we wire them up per-page below.
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Wire up a change-password form.
+ * @param {string} currentId   - ID of the "current password" input
+ * @param {string} newId       - ID of the "new password" input
+ * @param {string} confirmId   - ID of the "confirm" input
+ * @param {string} errorId     - ID of the error <p>
+ * @param {string} successId   - ID of the success <p>
+ * @param {string} btnId       - ID of the submit button
+ */
+function wireChangePassword(currentId, newId, confirmId, errorId, successId, btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+
+  btn.addEventListener('click', async () => {
+    const current_password = document.getElementById(currentId)?.value ?? '';
+    const new_password     = document.getElementById(newId)?.value.trim() ?? '';
+    const confirm          = document.getElementById(confirmId)?.value.trim() ?? '';
+    const errEl            = document.getElementById(errorId);
+    const sucEl            = document.getElementById(successId);
+
+    if (errEl) { errEl.hidden = true; errEl.textContent = ''; }
+    if (sucEl) { sucEl.hidden = true; sucEl.textContent = ''; }
+
+    if (!current_password) {
+      if (errEl) { errEl.textContent = 'Please enter your current password.'; errEl.hidden = false; }
+      return;
+    }
+    if (!new_password || new_password.length < 8) {
+      if (errEl) { errEl.textContent = 'New password must be at least 8 characters.'; errEl.hidden = false; }
+      return;
+    }
+    if (new_password !== confirm) {
+      if (errEl) { errEl.textContent = 'Passwords do not match.'; errEl.hidden = false; }
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Updating…';
+
+    const data = await apiPost('change_password.php', { current_password, new_password });
+
+    btn.disabled = false;
+    btn.textContent = 'Update password';
+
+    if (!data.ok) {
+      if (errEl) { errEl.textContent = data.error || 'Password update failed.'; errEl.hidden = false; }
+      return;
+    }
+
+    // Clear inputs on success
+    ['currentId', 'newId', 'confirmId'].forEach(key => {
+      const el = document.getElementById(arguments[['currentId','newId','confirmId'].indexOf(key)]);
+      if (el) el.value = '';
+    });
+    document.getElementById(currentId).value = '';
+    document.getElementById(newId).value = '';
+    document.getElementById(confirmId).value = '';
+
+    if (sucEl) { sucEl.textContent = '✓ Password updated successfully.'; sucEl.hidden = false; }
+  });
+}
+
+// ── Hospital admin change-password tab ───────────────────────
+if (document.getElementById('screen-hospital-admin')) {
+  wireChangePassword(
+    'ha-cp-current', 'ha-cp-new', 'ha-cp-confirm',
+    'ha-cp-error', 'ha-cp-success', 'btn-ha-change-password'
+  );
+}
+
+// ── Doctor change-password tab ───────────────────────────────
+if (document.getElementById('screen-doctor')) {
+  wireChangePassword(
+    'doc-cp-current', 'doc-cp-new', 'doc-cp-confirm',
+    'doc-cp-error', 'doc-cp-success', 'btn-doc-change-password'
+  );
+}
+
+// ── Emergency change-password tab ────────────────────────────
+if (document.getElementById('screen-emergency')) {
+  wireChangePassword(
+    'em-cp-current', 'em-cp-new', 'em-cp-confirm',
+    'em-cp-error', 'em-cp-success', 'btn-em-change-password'
+  );
 }

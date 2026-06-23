@@ -1,1 +1,4 @@
 /vendor/
+db.php
+send_mail.php
+

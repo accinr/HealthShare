@@ -18,7 +18,6 @@
       <span class="app-role">Emergency access module</span>
     </div>
     <div style="display:flex;gap:12px;align-items:center;">
-      <!-- Populated from session -->
       <span class="app-role" id="em-staff-info" style="font-size:0.8rem;opacity:0.7;"></span>
       <button class="link-logout" data-target="login.html">Log out</button>
     </div>
@@ -29,57 +28,83 @@
       Break-glass access — all actions are permanently logged and audited
     </div>
 
-    <div class="three-col">
-      <div class="panel">
-        <p class="panel-title">Trigger emergency access</p>
-        <label class="field-label" for="em-patient-id">Patient health ID</label>
-        <input class="field-input mono" id="em-patient-id" type="text" placeholder="KE-HID-XXXXX">
-        <label class="field-label" for="em-reason">Reason</label>
-        <select class="field-input" id="em-reason">
-          <option>Unconscious patient — no ID available</option>
-          <option>Critical trauma — immediate history needed</option>
-          <option>Allergy / medication verification</option>
-          <option>Other (specify in notes)</option>
-        </select>
-        <p class="auth-error" id="em-error" hidden></p>
-        <button class="btn-danger full" id="btn-breakglass">Trigger break-glass access</button>
-        <div class="notify-status" id="breakglass-status" hidden>
-          <i class="dot dot-coral"></i> <span id="breakglass-status-text">Patient has been notified — access logged</span>
+    <!-- Tab row -->
+    <div class="tab-row" role="tablist">
+      <button class="tab-btn active" data-tab="em-access-tab">Emergency access</button>
+      <button class="tab-btn" data-tab="em-password-tab">Change password</button>
+    </div>
+
+    <!-- ── Emergency access tab (original three-col layout) ── -->
+    <div class="tab-pane active" id="em-access-tab">
+      <div class="three-col">
+        <div class="panel">
+          <p class="panel-title">Trigger emergency access</p>
+          <label class="field-label" for="em-patient-id">Patient health ID</label>
+          <input class="field-input mono" id="em-patient-id" type="text" placeholder="KE-HID-XXXXX">
+          <label class="field-label" for="em-reason">Reason</label>
+          <select class="field-input" id="em-reason">
+            <option>Unconscious patient — no ID available</option>
+            <option>Critical trauma — immediate history needed</option>
+            <option>Allergy / medication verification</option>
+            <option>Other (specify in notes)</option>
+          </select>
+          <p class="auth-error" id="em-error" hidden></p>
+          <button class="btn-danger full" id="btn-breakglass">Trigger break-glass access</button>
+          <div class="notify-status" id="breakglass-status" hidden>
+            <i class="dot dot-coral"></i> <span id="breakglass-status-text">Patient has been notified — access logged</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Patient emergency info</p>
+          <div class="locked-overlay" id="emergency-locked-overlay">
+            <i class="ti-lock-icon">&#128274;</i>
+            <p>Trigger break-glass access to view this patient's emergency info</p>
+          </div>
+          <div class="record-grid" id="emergency-record-grid">
+            <div><p class="record-label">Name</p><p class="record-value" id="em-rec-name">—</p></div>
+            <div><p class="record-label">Health ID</p><p class="record-value mono" id="em-rec-hid">—</p></div>
+            <div><p class="record-label">Phone</p><p class="record-value" id="em-rec-phone">—</p></div>
+            <div><p class="record-label">Blood type</p><p class="record-value" id="em-rec-blood">—</p></div>
+            <div><p class="record-label">Allergies</p><p class="record-value" id="em-rec-allergies">—</p></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Emergency access log</p>
+          <table class="data-table small">
+            <thead><tr><th>Time</th><th>Personnel</th><th>Patient</th><th>Status</th></tr></thead>
+            <tbody id="em-log-tbody">
+              <tr><td colspan="4" class="empty-cell">No entries yet.</td></tr>
+            </tbody>
+          </table>
+          <div class="chain-status" style="margin-top:1rem;">
+            <i class="dot dot-sage"></i> Blockchain hash recorded for each entry
+          </div>
         </div>
       </div>
+    </div><!-- /em-access-tab -->
 
-      <div class="panel">
-        <p class="panel-title">Patient emergency info</p>
-        <div class="locked-overlay" id="emergency-locked-overlay">
-          <i class="ti-lock-icon">&#128274;</i>
-          <p>Trigger break-glass access to view this patient's emergency info</p>
-        </div>
-        <div class="record-grid" id="emergency-record-grid">
-          <!-- Populated after break-glass -->
-          <div><p class="record-label">Name</p><p class="record-value" id="em-rec-name">—</p></div>
-          <div><p class="record-label">Health ID</p><p class="record-value mono" id="em-rec-hid">—</p></div>
-          <div><p class="record-label">Phone</p><p class="record-value" id="em-rec-phone">—</p></div>
-          <div><p class="record-label">Blood type</p><p class="record-value" id="em-rec-blood">—</p></div>
-          <div><p class="record-label">Allergies</p><p class="record-value" id="em-rec-allergies">—</p></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <p class="panel-title">Emergency access log</p>
-        <table class="data-table small">
-          <thead><tr><th>Time</th><th>Personnel</th><th>Patient</th><th>Status</th></tr></thead>
-          <tbody id="em-log-tbody">
-            <tr><td colspan="4" class="empty-cell">No entries yet.</td></tr>
-          </tbody>
-        </table>
-        <div class="chain-status" style="margin-top:1rem;">
-          <i class="dot dot-sage"></i> Blockchain hash recorded for each entry
-        </div>
+    <!-- ── Change password tab ── -->
+    <div class="tab-pane" id="em-password-tab">
+      <div class="panel" style="max-width:480px;">
+        <p class="panel-title">Change your password</p>
+        <p class="panel-sub">Choose a strong password of at least 8 characters.</p>
+        <label class="field-label" for="em-cp-current">Current password</label>
+        <input class="field-input" id="em-cp-current" type="password" placeholder="••••••••" autocomplete="current-password">
+        <label class="field-label" for="em-cp-new">New password</label>
+        <input class="field-input" id="em-cp-new" type="password" placeholder="Min. 8 characters" autocomplete="new-password">
+        <label class="field-label" for="em-cp-confirm">Confirm new password</label>
+        <input class="field-input" id="em-cp-confirm" type="password" placeholder="Repeat new password" autocomplete="new-password">
+        <p class="auth-error" id="em-cp-error" hidden></p>
+        <p class="auth-error" id="em-cp-success" hidden style="color:var(--sage,#4caf50);"></p>
+        <button class="btn-primary full" id="btn-em-change-password">Update password</button>
       </div>
     </div>
+
   </div>
 </section>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

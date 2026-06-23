@@ -19,6 +19,7 @@
     <div class="cred-row"><span class="cred-label">User ID</span><span class="cred-val mono" id="cred-user-id"></span></div>
     <div class="cred-row" id="cred-token-row" hidden><span class="cred-label">Emergency token</span><span class="cred-val mono" id="cred-token"></span></div>
     <div class="cred-row"><span class="cred-label">Temp password</span><span class="cred-val mono" id="cred-password"></span></div>
+    <p class="modal-note" id="cred-email-note">Credentials have been emailed to the registrant.</p>
     <p class="modal-note">They should change this password on first login.</p>
     <button class="btn-primary full" id="btn-close-cred-modal">Done — I've noted these credentials</button>
   </div>
@@ -36,7 +37,6 @@
   <div class="app-body">
     <div class="welcome-banner">
       <div>
-        <!-- Populated from session -->
         <p class="welcome-title" id="ha-facility-name">Loading…</p>
         <p class="welcome-sub">Admin: <span id="ha-admin-name">—</span> · Facility ID <span class="mono" id="ha-facility-id">—</span></p>
       </div>
@@ -54,6 +54,7 @@
       <button class="tab-btn" data-tab="ha-doctor-list">Doctor list</button>
       <button class="tab-btn" data-tab="ha-emergency-list">Emergency list</button>
       <button class="tab-btn" data-tab="ha-audit">Audit / security</button>
+      <button class="tab-btn" data-tab="ha-change-password">Change password</button>
     </div>
 
     <div class="two-col">
@@ -64,6 +65,8 @@
           <p class="panel-title">Register a doctor</p>
           <label class="field-label" for="ha-doc-name">Full name</label>
           <input class="field-input" id="ha-doc-name" type="text" placeholder="e.g. Dr. Susan Kiptoo">
+          <label class="field-label" for="ha-doc-email">Email address</label>
+          <input class="field-input" id="ha-doc-email" type="email" placeholder="doctor@hospital.ke">
           <div class="field-row">
             <div class="field-col">
               <label class="field-label" for="ha-doc-license">License number</label>
@@ -80,6 +83,7 @@
               </select>
             </div>
           </div>
+          <p class="modal-note" style="margin-bottom:12px;">Login credentials will be emailed to the doctor automatically on registration.</p>
           <p class="auth-error" id="doc-reg-error" hidden></p>
           <button class="btn-primary full" id="btn-register-doctor">Register doctor</button>
         </div>
@@ -103,7 +107,9 @@
               </select>
             </div>
           </div>
-          <p class="modal-note" style="margin-bottom:12px;">An emergency token and temporary password will be generated on registration.</p>
+          <label class="field-label" for="ha-em-email">Email address</label>
+          <input class="field-input" id="ha-em-email" type="email" placeholder="staff@hospital.ke">
+          <p class="modal-note" style="margin-bottom:12px;">An emergency token and temporary password will be generated and emailed to the staff member on registration.</p>
           <p class="auth-error" id="em-reg-error" hidden></p>
           <button class="btn-primary full" id="btn-register-emergency">Register emergency personnel</button>
         </div>
@@ -146,6 +152,23 @@
         </div>
       </div>
 
+      <!-- ── Change password ── -->
+      <div class="tab-pane" id="ha-change-password">
+        <div class="panel">
+          <p class="panel-title">Change your password</p>
+          <p class="panel-sub">Choose a strong password of at least 8 characters.</p>
+          <label class="field-label" for="ha-cp-current">Current password</label>
+          <input class="field-input" id="ha-cp-current" type="password" placeholder="••••••••" autocomplete="current-password">
+          <label class="field-label" for="ha-cp-new">New password</label>
+          <input class="field-input" id="ha-cp-new" type="password" placeholder="Min. 8 characters" autocomplete="new-password">
+          <label class="field-label" for="ha-cp-confirm">Confirm new password</label>
+          <input class="field-input" id="ha-cp-confirm" type="password" placeholder="Repeat new password" autocomplete="new-password">
+          <p class="auth-error" id="ha-cp-error" hidden></p>
+          <p class="auth-error" id="ha-cp-success" hidden style="color:var(--sage,#4caf50);"></p>
+          <button class="btn-primary full" id="btn-ha-change-password">Update password</button>
+        </div>
+      </div>
+
       <!-- Always-visible side panel -->
       <div class="panel ha-side-panel">
         <p class="panel-title">Recent security events</p>
@@ -158,6 +181,6 @@
   </div>
 </section>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

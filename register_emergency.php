@@ -1,9 +1,11 @@
 <?php
-// register_emergency.php — POST {full_name, em_role}
+// register_emergency.php — POST {full_name, em_role, email}
 // Requires: hospital_admin session
 // Returns: {ok, staff_id, emergency_token, temp_password, full_name}
+// NOTE: Does NOT modify blockchain logic — sidecar call is unchanged.
 
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/send_mail.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_err('Method not allowed', 405);
 
@@ -12,17 +14,27 @@ $admin = require_role('hospital_admin');
 $body      = json_decode(file_get_contents('php://input'), true) ?? [];
 $full_name = trim($body['full_name'] ?? '');
 $em_role   = trim($body['em_role']   ?? '');
+$email     = trim($body['email']     ?? '');
 
 if (!$full_name || !$em_role) {
     json_err('Full name and role are required.');
 }
 
+// Email is required so we can send credentials
+if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    json_err('A valid email address is required to send login credentials.');
+}
+
 // Admin's facility
-$fac = db()->prepare('SELECT facility_id FROM hospital_admins WHERE user_id = ?');
+$fac = db()->prepare('SELECT ha.facility_id, f.name AS facility_name
+    FROM hospital_admins ha
+    JOIN facilities f ON f.facility_id = ha.facility_id
+    WHERE ha.user_id = ?');
 $fac->execute([$admin['user_id']]);
 $row = $fac->fetch();
 if (!$row) json_err('Admin facility not found.', 500);
-$facility_id = $row['facility_id'];
+$facility_id   = $row['facility_id'];
+$facility_name = $row['facility_name'];
 
 // Generate unique staff ID for emergency (KE-EMG-XXXX)
 do {
@@ -52,6 +64,8 @@ try {
     $pdo->rollBack();
     json_err('Registration failed. Please try again.');
 }
+
+// Record on blockchain — UNCHANGED from original
 require_once __DIR__ . '/sidecar.php';
 sidecar_post('/registerEmergency', [
     'staffId'        => $staff_id,
@@ -60,9 +74,20 @@ sidecar_post('/registerEmergency', [
     'emergencyToken' => $emergency_token,
     'facilityId'     => $facility_id,
 ]);
+
+// Send credentials email via PHPMailer (non-fatal)
+$email_sent = send_credentials_email($email, $full_name, [
+    'role'            => 'Emergency Personnel',
+    'staff_id'        => $staff_id,
+    'temp_password'   => $temp_password,
+    'facility_name'   => $facility_name,
+    'emergency_token' => $emergency_token,
+]);
+
 json_ok([
     'staff_id'        => $staff_id,
     'emergency_token' => $emergency_token,
     'temp_password'   => $temp_password,
     'full_name'       => $full_name,
+    'email_sent'      => $email_sent,
 ]);
