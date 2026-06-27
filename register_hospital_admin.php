@@ -47,11 +47,17 @@ try {
     $pdo->prepare('INSERT INTO users (user_id, role, password_hash) VALUES (?,?,?)')
         ->execute([$staff_id, 'hospital_admin', $hash]);
 
+    // FIX: hospital_admins table has no email column (email is only used for
+    // sending credentials, it is not stored). Removed email from this INSERT.
     $pdo->prepare(
         'INSERT INTO hospital_admins (user_id, full_name, facility_id) VALUES (?,?,?)'
     )->execute([$staff_id, $full_name, $facility_id]);
 
-    audit($sys_admin['user_id'], 'hospital_admin_registered', "$full_name ($staff_id) → $facility_id");
+    try {
+        audit($sys_admin['user_id'], 'hospital_admin_registered', "$full_name ($staff_id) → $facility_id");
+    } catch (Throwable $e) {
+        error_log('audit() failed in register_hospital_admin.php: ' . $e->getMessage());
+    }
     $pdo->commit();
 } catch (Exception $e) {
     $pdo->rollBack();

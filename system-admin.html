@@ -66,21 +66,23 @@
             <p class="panel-title">Configure access policies</p>
             <div class="policy-row">
               <span>Emergency access (break-glass)</span>
-              <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              <label class="switch"><input type="checkbox" id="policy-breakglass" checked><span class="switch-track"></span></label>
             </div>
             <div class="policy-row">
               <span>Consent required for record access</span>
-              <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              <label class="switch"><input type="checkbox" id="policy-consent" checked><span class="switch-track"></span></label>
             </div>
             <div class="policy-row">
               <span>MFA enforcement</span>
-              <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              <label class="switch"><input type="checkbox" id="policy-mfa" checked><span class="switch-track"></span></label>
             </div>
             <div class="policy-row">
               <span>Role-based access control</span>
-              <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+              <label class="switch"><input type="checkbox" id="policy-rbac" checked><span class="switch-track"></span></label>
             </div>
-            <button class="btn-primary full">Apply policies</button>
+            <p class="auth-error" id="policy-error" hidden></p>
+            <p class="auth-error" id="policy-success" hidden style="color:var(--sage);"></p>
+            <button class="btn-primary full" id="btn-apply-policies">Apply policies</button>
             <div class="chain-status">
               <i class="dot dot-sage"></i> Blockchain integrity verified
             </div>

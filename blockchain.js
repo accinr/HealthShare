@@ -138,79 +138,171 @@ function renderBlockchainTransactions(auditData) {
     </tr>`).join('');
 }
 
-// ── Hospital interoperability simulation ─────────────────────
-// Dashboard-only visualization — does not touch Fabric topology, peers, or
-// chaincode. Every value below comes from real data already in the system:
-// facility names + a real actor->facility map (get_facilities.php),
-// and real audit_logs rows (get_audit_logs.php, last 50 events — this is a
-// live-activity window, not an all-time total, and is labeled as such).
-// Nothing here is hardcoded or fabricated; if there's no activity yet, the
-// panel says so instead of inventing a transaction.
+// ── Live interoperability timeline ───────────────────────────
+// Reads real audit_logs rows, attributes each to a facility via staffMap,
+// then finds cross-hospital patient journeys: any patient who has events
+// from more than one facility. Each journey is rendered as a vertical
+// timeline. No demo button. No hardcoded data. No interop_demo.php.
 async function loadInteropSimulation(auditData) {
   const panel = document.getElementById('sa-interop-panel');
   if (!panel) return;
 
-  const facData = await apiGet('get_facilities.php');
+  const facData  = await apiGet('get_facilities.php');
   const facilities = facData.ok ? (facData.facilities || []) : [];
-  const staffMap = facData.ok ? (facData.staff_map || {}) : {};
+  const staffMap   = facData.ok ? (facData.staff_map  || {}) : {};
+  const facNames   = {};
+  facilities.forEach(f => { facNames[f.facility_id] = f.name; });
 
-  const statusData = await apiGet('get_blockchain_status.php');
-  const synced = !!statusData.connected;
+  const logs = (auditData.logs || []).slice().reverse(); // chronological order
 
-  const logs = auditData.logs || [];
+  // ── Interop-relevant action types ────────────────────────
+  const INTEROP_ACTIONS = new Set([
+    'patient_registered',
+    'access_requested',
+    'consent_granted',
+    'consent_revoked',
+    'record_viewed',
+    'record_submitted',
+    'breakglass_access',
+  ]);
 
-  if (facilities.length < 2) {
-    panel.innerHTML = `
-      <p class="panel-title">Hospital interoperability simulation</p>
-      <p class="empty-cell">Register at least 2 facilities to simulate inter-hospital sync.</p>`;
-    return;
+  // ── Extract patient ID from detail field ─────────────────
+  // Detail is always written as "Patient: KE-HID-XXXXX | ..."
+  function extractPatient(detail = '') {
+    const m = detail.match(/Patient:\s*(KE-HID-[A-Z0-9]+)/i);
+    return m ? m[1] : null;
   }
 
-  // Pick the two facilities with the most real attributed activity in this
-  // window as Hospital A / Hospital B (falls back to the two most recently
-  // registered facilities if neither has any logged activity yet).
-  const activityCount = {};
+  // ── Build journey map: patient → ordered list of events ──
+  const journeys = {}; // patient_id → [{ facility_id, facility_name, action, actor_id, time, hash, block_id }]
+
   logs.forEach(l => {
-    const fid = staffMap[l.actor_id];
-    if (fid) activityCount[fid] = (activityCount[fid] || 0) + 1;
+    if (!INTEROP_ACTIONS.has(l.action)) return;
+
+    const patient = extractPatient(l.detail || '');
+    if (!patient) return;
+
+    const fid   = staffMap[l.actor_id] || null;
+    const fname = fid ? (facNames[fid] || fid) : (l.actor_role === 'patient' ? 'Patient' : 'System');
+
+    if (!journeys[patient]) journeys[patient] = [];
+    journeys[patient].push({
+      facility_id:   fid,
+      facility_name: fname,
+      action:        l.action,
+      actor_id:      l.actor_id,
+      actor_role:    l.actor_role,
+      time:          l.time,
+      hash:          (l.current_hash || l.log_hash || '').slice(0, 12),
+      block_id:      l.block_id,
+    });
   });
-  const ranked = [...facilities].sort((a, b) => (activityCount[b.facility_id] || 0) - (activityCount[a.facility_id] || 0));
-  const hospA = ranked[0];
-  const hospB = ranked[1];
 
-  // Real per-row attribution — no alternating, no guessing. A row only
-  // counts toward a node if its actor genuinely works at that facility.
-  const rowsForA = logs.filter(l => staffMap[l.actor_id] === hospA.facility_id);
-  const rowsForB = logs.filter(l => staffMap[l.actor_id] === hospB.facility_id);
-  const sharingEvents  = logs.filter(l => l.action === 'consent_granted');
-  const exchangeEvents = logs.filter(l => l.action === 'record_submitted' || l.action === 'record_viewed');
-  const latest = logs[0];
+  // ── Keep only cross-hospital journeys ────────────────────
+  // A journey is cross-hospital if events come from at least 2 distinct
+  // non-null facility IDs.
+  const crossHospital = Object.entries(journeys).filter(([, events]) => {
+    const fids = new Set(events.map(e => e.facility_id).filter(Boolean));
+    return fids.size >= 2;
+  });
 
-  const lastFor = rows => rows[0] ? `${rows[0].action.replace(/_/g,' ')} · ${rows[0].time}` : 'No activity yet';
+  // ── Summary counts for the header ────────────────────────
+  const allConsentEvents  = logs.filter(l => l.action === 'consent_granted');
+  const allRecordEvents   = logs.filter(l => l.action === 'record_submitted' || l.action === 'record_viewed');
+  const allBreakglass     = logs.filter(l => l.action === 'breakglass_access');
+  const syncedStatus      = await apiGet('get_blockchain_status.php');
+  const synced            = !!syncedStatus.connected;
 
-  panel.innerHTML = `
-    <p class="panel-title">Hospital interoperability simulation</p>
-    <p class="panel-sub">Live, derived from the last ${logs.length} audit_logs entries — not a fixed demo.</p>
-    <div class="record-grid unlocked" style="margin:12px 0;">
-      <div><p class="record-label">Hospital A node</p><p class="record-value">${hospA.name}</p></div>
-      <div><p class="record-label">Hospital B node</p><p class="record-value">${hospB.name}</p></div>
-      <div><p class="record-label">Sync status</p><p class="record-value">${synced ? 'Synchronized' : 'Pending (sidecar offline)'}</p></div>
-      <div><p class="record-label">Record sharing count</p><p class="record-value">${sharingEvents.length} consent grant${sharingEvents.length===1?'':'s'}</p></div>
-      <div><p class="record-label">Records exchanged</p><p class="record-value">${exchangeEvents.length}</p></div>
-      <div><p class="record-label">Latest transaction</p><p class="record-value">${latest ? latest.action.replace(/_/g,' ') : '—'}</p></div>
-      <div><p class="record-label">Latest actor</p><p class="record-value mono">${latest ? latest.actor_id : '—'}</p></div>
-      <div><p class="record-label">Transaction timestamp</p><p class="record-value">${latest ? latest.time : '—'}</p></div>
-    </div>
-    <div class="record-grid unlocked" style="margin-bottom:8px;">
-      <div>
-        <p class="record-label">${hospA.name} — events in window</p>
-        <p class="record-value">${rowsForA.length}</p>
-        <p class="record-value" style="font-size:12px;color:var(--muted);">Last: ${lastFor(rowsForA)}</p>
-      </div>
-      <div>
-        <p class="record-label">${hospB.name} — events in window</p>
-        <p class="record-value">${rowsForB.length}</p>
-        <p class="record-value" style="font-size:12px;color:var(--muted);">Last: ${lastFor(rowsForB)}</p>
-      </div>
+  // ── Action → human label + CSS class ─────────────────────
+  const ACTION_META = {
+    patient_registered: { label: 'Patient registered',    cls: 'badge-teal'  },
+    access_requested:   { label: 'Access requested',      cls: 'badge-amber' },
+    consent_granted:    { label: 'Consent granted',       cls: 'badge-sage'  },
+    consent_revoked:    { label: 'Consent revoked',       cls: 'badge-coral' },
+    record_viewed:      { label: 'Records retrieved',     cls: 'badge-blue'  },
+    record_submitted:   { label: 'Record submitted',      cls: 'badge-teal'  },
+    breakglass_access:  { label: 'Emergency break-glass', cls: 'badge-coral' },
+  };
+
+  // ── Render ────────────────────────────────────────────────
+  let html = `
+    <p class="panel-title">Live interoperability events</p>
+    <p class="panel-sub">Automatically updated from real system activity — no simulated data.</p>
+
+    <div class="record-grid unlocked" style="margin:12px 0 20px;">
+      <div><p class="record-label">Active facilities</p><p class="record-value">${facilities.filter(f=>f.status==='active').length}</p></div>
+      <div><p class="record-label">Cross-hospital journeys</p><p class="record-value">${crossHospital.length}</p></div>
+      <div><p class="record-label">Consent events</p><p class="record-value">${allConsentEvents.length}</p></div>
+      <div><p class="record-label">Records exchanged</p><p class="record-value">${allRecordEvents.length}</p></div>
+      <div><p class="record-label">Break-glass events</p><p class="record-value">${allBreakglass.length}</p></div>
+      <div><p class="record-label">Fabric sync</p><p class="record-value">${synced ? '✓ Synchronized' : 'Sidecar offline'}</p></div>
     </div>`;
+
+  if (crossHospital.length === 0) {
+    html += `
+      <div style="padding:24px;text-align:center;color:var(--muted);border:1px dashed var(--border);border-radius:8px;">
+        <p style="margin:0 0 8px;font-weight:600;">No cross-hospital events yet</p>
+        <p style="margin:0;font-size:13px;">
+          To generate a real interoperability event: register a patient at Hospital A,
+          then log in as a Hospital B doctor and request access to that patient.
+          The timeline will appear here automatically.
+        </p>
+      </div>`;
+  } else {
+    // Most recent journey first
+    crossHospital.reverse().forEach(([patient_id, events]) => {
+      const facilitiesInvolved = [...new Set(events.map(e => e.facility_name).filter(n => n !== 'Patient' && n !== 'System'))];
+      const hospA = facilitiesInvolved[0] || '—';
+      const hospB = facilitiesInvolved[1] || '—';
+
+      html += `
+        <div style="margin-bottom:28px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+          <div style="background:var(--surface-alt,#f5f3ee);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div>
+              <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Patient journey</span>
+              <p style="margin:2px 0 0;font-family:var(--font-mono,monospace);font-weight:700;">${patient_id}</p>
+            </div>
+            <div style="text-align:right;font-size:12px;color:var(--muted);">
+              ${hospA} <span style="margin:0 6px;">⟷</span> ${hospB}
+            </div>
+          </div>
+          <div style="padding:16px;">
+            <div class="interop-timeline">`;
+
+      events.forEach((ev, idx) => {
+        const meta    = ACTION_META[ev.action] || { label: ev.action.replace(/_/g,' '), cls: 'badge-amber' };
+        const isLast  = idx === events.length - 1;
+        html += `
+              <div class="interop-step">
+                <div class="interop-step-marker">
+                  <div class="interop-dot"></div>
+                  ${!isLast ? '<div class="interop-line"></div>' : ''}
+                </div>
+                <div class="interop-step-body">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                    <span class="badge ${meta.cls}">${meta.label}</span>
+                    <span style="font-size:12px;font-weight:600;">${ev.facility_name}</span>
+                    <span style="font-size:11px;color:var(--muted);">${ev.time}</span>
+                  </div>
+                  <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono,monospace);">
+                    Actor: ${ev.actor_id}
+                    ${ev.hash ? `· Block #${ev.block_id} · Hash: ${ev.hash}…` : ''}
+                  </div>
+                </div>
+              </div>`;
+      });
+
+      html += `
+            </div>
+          </div>
+        </div>`;
+    });
+  }
+
+  html += `
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;">
+      Auto-refreshes every 15 seconds · All events are anchored on Hyperledger Fabric
+    </p>`;
+
+  panel.innerHTML = html;
 }

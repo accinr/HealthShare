@@ -1,8 +1,7 @@
 <?php
 // register_doctor.php — POST {full_name, license_no, specialization, email}
 // Requires: hospital_admin session
-// Returns: {ok, staff_id, temp_password, full_name}
-// NOTE: Does NOT modify blockchain logic — sidecar call is unchanged.
+// Returns: {ok, staff_id, temp_password, full_name, email_sent}
 
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/send_mail.php';
@@ -16,28 +15,30 @@ $full_name      = trim($body['full_name']      ?? '');
 $license_no     = trim($body['license_no']     ?? '');
 $specialization = trim($body['specialization'] ?? '');
 $email          = trim($body['email']          ?? '');
+$phone          = trim($body['phone']          ?? '');
 
-if (!$full_name || !$license_no || !$specialization) {
-    json_err('Full name, license number and specialization are required.');
+if (!$full_name || !$license_no) {
+    json_err('Full name and license number are required.');
 }
 
-// Email is required so we can send credentials
 if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     json_err('A valid email address is required to send login credentials.');
 }
 
-// Look up the admin's facility
-$fac = db()->prepare('SELECT facility_id, f.name AS facility_name
-    FROM hospital_admins ha
-    JOIN facilities f ON f.facility_id = ha.facility_id
-    WHERE ha.user_id = ?');
+// Admin's facility
+$fac = db()->prepare(
+    'SELECT ha.facility_id, f.name AS facility_name
+       FROM hospital_admins ha
+       JOIN facilities f ON f.facility_id = ha.facility_id
+      WHERE ha.user_id = ?'
+);
 $fac->execute([$admin['user_id']]);
 $row = $fac->fetch();
 if (!$row) json_err('Admin facility not found.', 500);
 $facility_id   = $row['facility_id'];
 $facility_name = $row['facility_name'];
 
-// Generate unique staff ID
+// Generate unique doctor staff ID (KE-STF-XXXX)
 do {
     $staff_id = gen_staff_id('STF');
     $exists = db()->prepare('SELECT id FROM users WHERE user_id = ?');
@@ -54,28 +55,26 @@ try {
         ->execute([$staff_id, 'doctor', $hash]);
 
     $pdo->prepare(
-        'INSERT INTO doctors (user_id, full_name, license_no, specialization, facility_id)
-         VALUES (?,?,?,?,?)'
-    )->execute([$staff_id, $full_name, $license_no, $specialization, $facility_id]);
+        'INSERT INTO doctors (user_id, full_name, license_no, specialization, facility_id, phone)
+         VALUES (?,?,?,?,?,?)'
+    )->execute([$staff_id, $full_name, $license_no, $specialization ?: 'General Practice', $facility_id, $phone]);
 
-    audit($admin['user_id'], 'doctor_registered', "$full_name ($staff_id) at $facility_id");
+    audit($admin['user_id'], 'doctor_registered', "$full_name ($staff_id)");
     $pdo->commit();
 } catch (Exception $e) {
     $pdo->rollBack();
-    json_err('Registration failed. Please try again.');
+    json_err('Registration failed: ' . $e->getMessage());
 }
 
-// Record on blockchain — UNCHANGED from original
+// Record on blockchain — IDs and facility only, no PII on-chain
 require_once __DIR__ . '/sidecar.php';
 sidecar_post('/registerDoctor', [
-    'staffId'        => $staff_id,
-    'fullName'       => $full_name,
-    'licenseNo'      => $license_no,
-    'specialization' => $specialization,
-    'facilityId'     => $facility_id,
+    'staffId'    => $staff_id,
+    'facilityId' => $facility_id,
+    'recordHash' => hash('sha256', $staff_id . $license_no . $facility_id),
 ]);
 
-// Send credentials email via PHPMailer (non-fatal — if it fails the account still exists)
+// Send credentials email via PHPMailer (non-fatal)
 $email_sent = send_credentials_email($email, $full_name, [
     'role'          => 'Doctor',
     'staff_id'      => $staff_id,

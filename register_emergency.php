@@ -65,14 +65,13 @@ try {
     json_err('Registration failed. Please try again.');
 }
 
-// Record on blockchain — UNCHANGED from original
+// Record on blockchain — IDs and facility only, no PII on-chain
 require_once __DIR__ . '/sidecar.php';
 sidecar_post('/registerEmergency', [
     'staffId'        => $staff_id,
-    'fullName'       => $full_name,
-    'emRole'         => $em_role,
-    'emergencyToken' => $emergency_token,
     'facilityId'     => $facility_id,
+    'emergencyToken' => $emergency_token,
+    'recordHash'     => hash('sha256', $staff_id . $emergency_token . $facility_id),
 ]);
 
 // Send credentials email via PHPMailer (non-fatal)

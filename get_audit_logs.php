@@ -9,7 +9,8 @@ if ($user['role'] === 'system_admin') {
     $stmt = db()->query(
         'SELECT id AS block_id, actor_id, actor_role, action, detail, record_id,
                 log_hash, previous_hash, current_hash, verification_status,
-                DATE_FORMAT(created_at, "%d %b %H:%i") AS time
+                DATE_FORMAT(created_at, "%d %b %H:%i") AS time,
+                DATE_FORMAT(created_at, "%Y-%m-%dT%H:%i:%s") AS created_iso
          FROM audit_logs ORDER BY id DESC LIMIT 50'
     );
 } else {
@@ -35,7 +36,8 @@ if ($user['role'] === 'system_admin') {
     $stmt = db()->prepare(
         "SELECT id AS block_id, actor_id, actor_role, action, detail, record_id,
                 log_hash, previous_hash, current_hash, verification_status,
-                DATE_FORMAT(created_at, '%d %b %H:%i') AS time
+                DATE_FORMAT(created_at, '%d %b %H:%i') AS time,
+                DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s') AS created_iso
          FROM audit_logs WHERE actor_id IN ($placeholders)
          ORDER BY id DESC LIMIT 50"
     );

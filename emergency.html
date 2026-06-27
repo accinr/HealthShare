@@ -39,8 +39,20 @@
       <div class="three-col">
         <div class="panel">
           <p class="panel-title">Trigger emergency access</p>
-          <label class="field-label" for="em-patient-id">Patient health ID</label>
-          <input class="field-input mono" id="em-patient-id" type="text" placeholder="KE-HID-XXXXX">
+
+          <label class="field-label">Search patient by</label>
+          <div class="seg-row" style="margin-bottom:12px;">
+            <button class="em-search-btn active" data-search-type="health_id">Health ID</button>
+            <button class="em-search-btn" data-search-type="national_id">National ID</button>
+            <button class="em-search-btn" data-search-type="phone">Phone</button>
+          </div>
+
+          <label class="field-label" for="em-patient-id" id="em-search-label">Patient health ID</label>
+          <input class="field-input mono" id="em-patient-id" type="text" placeholder="KE-HID-XXXXX" autocomplete="off">
+          <p class="field-hint" id="em-search-hint" style="font-size:12px;color:var(--muted,#888);margin:-8px 0 12px;">
+            Enter the patient's HealthShare ID from their card or bracelet.
+          </p>
+
           <label class="field-label" for="em-reason">Reason</label>
           <select class="field-input" id="em-reason">
             <option>Unconscious patient — no ID available</option>
@@ -105,6 +117,6 @@
   </div>
 </section>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

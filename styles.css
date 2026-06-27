@@ -163,6 +163,28 @@ html, body {
   box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 
+/* Emergency search toggle — identical appearance to seg-btn but
+   uses a distinct class so the global login seg-btn handler
+   does not intercept these clicks. */
+.em-search-btn {
+  flex: 1;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 9px 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+.em-search-btn.active {
+  background: var(--surface);
+  color: var(--teal);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+
 .auth-pane { display: none; }
 .auth-pane.active { display: block; }
 
@@ -771,3 +793,48 @@ html, body {
 
 /* empty table cells */
 .empty-cell { color: var(--muted); font-size: 13px; text-align: center; padding: 12px 0; }
+
+/* ── Interoperability timeline ─────────────────────────────── */
+.interop-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.interop-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.interop-step-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 16px;
+  padding-top: 4px;
+}
+.interop-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--teal, #2a7c6f);
+  flex-shrink: 0;
+}
+.interop-line {
+  width: 2px;
+  flex: 1;
+  min-height: 28px;
+  background: var(--border, #e0ddd6);
+  margin: 3px 0;
+}
+.interop-step-body {
+  padding-bottom: 16px;
+  flex: 1;
+  min-width: 0;
+}
+/* Badge colour variants used by the timeline */
+.badge-blue   { background: #dbeafe; color: #1e40af; }
+.badge-teal   { background: #d1fae5; color: #065f46; }
+.badge-sage   { background: #dcfce7; color: #166534; }
+.badge-amber  { background: #fef3c7; color: #92400e; }
+.badge-coral  { background: #fee2e2; color: #991b1b; }

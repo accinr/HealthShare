@@ -43,51 +43,121 @@
       </div>
     </div>
 
-    <!-- Tab row — includes Change Password -->
+    <!-- Tab row -->
     <div class="tab-row" role="tablist">
       <button class="tab-btn active" data-tab="doctor-main">Patient records</button>
       <button class="tab-btn" data-tab="doctor-change-password">Change password</button>
     </div>
 
-    <!-- ── Patient records tab (original content) ── -->
+    <!-- ── Patient records tab ── -->
     <div class="tab-pane active" id="doctor-main">
 
       <div class="panel">
-        <p class="panel-title">Retrieve patient record</p>
+        <p class="panel-title">Find patient</p>
+
+        <!-- Search type selector (mirrors emergency access) -->
+        <label class="field-label">Search by</label>
+        <div class="seg-row" style="margin-bottom:12px;">
+          <button class="em-search-btn active" data-doc-search-type="health_id">Health ID</button>
+          <button class="em-search-btn" data-doc-search-type="national_id">National ID</button>
+          <button class="em-search-btn" data-doc-search-type="phone">Phone</button>
+        </div>
+
+        <label class="field-label" for="doctor-search-id" id="doc-search-label">Patient Health ID</label>
+        <p class="field-hint" id="doc-search-hint" style="font-size:12px;color:var(--muted,#888);margin:-8px 0 12px;">
+          Enter the patient's HealthShare ID (KE-HID-XXXXX) from their card.
+        </p>
         <div class="search-row">
-          <input class="field-input" id="doctor-search-id" type="text" placeholder="Patient health ID (KE-HID-XXXXX)">
+          <input class="field-input" id="doctor-search-id" type="text" placeholder="KE-HID-XXXXX" autocomplete="off">
           <button class="btn-primary" id="btn-doctor-search">Search</button>
         </div>
+        <p class="auth-error" id="doc-search-error" hidden></p>
 
-        <div class="access-status" id="access-status-locked">
-          <i class="dot dot-amber"></i>
-          <span>Access not yet granted — request consent to view this patient's records</span>
-          <button class="btn-secondary" id="btn-request-access">Request access</button>
+        <!-- Found patient card (shown after successful search) -->
+        <div id="doc-found-patient-card" hidden style="margin-top:16px;padding:16px;background:var(--surface-alt,#f0ede6);border-radius:10px;">
+          <p class="panel-title" style="margin:0 0 10px;">Patient found</p>
+          <div class="record-grid unlocked" style="margin:0;">
+            <div><p class="record-label">Name</p><p class="record-value" id="found-name">—</p></div>
+            <div><p class="record-label">Health ID</p><p class="record-value mono" id="found-hid">—</p></div>
+            <div><p class="record-label">Primary hospital</p><p class="record-value" id="found-facility">—</p></div>
+            <div><p class="record-label">Phone</p><p class="record-value" id="found-phone">—</p></div>
+          </div>
         </div>
 
+        <!-- Access status: locked -->
+        <div class="access-status" id="access-status-locked" hidden>
+          <i class="dot dot-amber"></i>
+          <span>Patient consent required — request records to proceed</span>
+        </div>
+
+        <!-- Request Records form (shown after patient found, before request sent) -->
+        <div id="request-records-form" hidden style="margin-top:16px;">
+          <p class="panel-title">Request Records</p>
+
+          <label class="field-label" for="doc-reason">Reason for access <span style="color:var(--coral,#e74c3c);">*</span></label>
+          <textarea class="field-input textarea" id="doc-reason" rows="3"
+            placeholder="e.g. Follow-up consultation for chronic hypertension management"></textarea>
+
+          <label class="field-label" style="margin-top:12px;">Record types requested <span style="color:var(--coral,#e74c3c);">*</span></label>
+          <div id="record-type-checkboxes" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" name="record_type" value="Consultation Notes"> Consultation Notes
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" name="record_type" value="Prescriptions"> Prescriptions
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" name="record_type" value="Lab Results"> Lab Results
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" name="record_type" value="Radiology"> Radiology
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" name="record_type" value="Full Record"> Full Record
+            </label>
+          </div>
+
+          <p class="auth-error" id="request-records-error" hidden></p>
+          <button class="btn-primary" id="btn-request-records">Request Records</button>
+        </div>
+
+        <!-- Waiting / approval card (shown after request sent) -->
         <div class="otp-request-card" id="otp-request-card" hidden>
           <div class="pending-head">
-            <i class="dot dot-amber"></i>
+            <i class="dot dot-amber" id="otp-card-dot"></i>
             <p class="pending-title" id="otp-card-title">Awaiting patient approval</p>
           </div>
-          <p class="pending-body">The patient has been notified and must approve this request from their own dashboard — access cannot be granted without that.</p>
-          <p class="pending-help" id="doctor-demo-otp-hint"></p>
-          <p class="pending-help" id="doctor-otp-status">Waiting for the patient to approve…</p>
+          <p class="pending-body" id="otp-card-body">The patient has been notified and must approve this request from their own dashboard.</p>
+          <p class="pending-help" id="doctor-otp-status">Waiting for the patient to respond…</p>
+
+          <!-- Shown after patient approves: display OTP for doctor to read and manually type -->
+          <div id="doctor-otp-approved-block" hidden style="margin-top:16px;padding:16px;background:var(--surface-alt,#f0ede6);border-radius:10px;">
+            <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Access Approved — One-Time Code</p>
+            <p class="mono" id="doctor-approved-otp" style="font-size:32px;font-weight:700;letter-spacing:.18em;margin:6px 0 2px;"></p>
+            <p style="font-size:12px;color:var(--muted,#888);margin:0;" id="doctor-otp-expiry"></p>
+            <p style="font-size:12px;margin:10px 0 0;color:var(--muted);">Type this code into the verification field below. Do not share it via insecure channels.</p>
+          </div>
+
+          <!-- OTP entry form: doctor must manually type the OTP -->
           <div id="doctor-otp-entry" hidden style="margin-top:12px;">
-            <p class="pending-body" style="margin-bottom:8px;">Patient approved. Enter the one-time code they share with you:</p>
+            <p class="pending-body" style="margin-bottom:8px;">Enter the one-time code shown above:</p>
             <div class="search-row">
-              <input class="field-input mono" id="doctor-otp-input" type="text" maxlength="6" placeholder="6-digit code" style="letter-spacing:.15em;font-size:20px;text-align:center;">
+              <input class="field-input mono" id="doctor-otp-input" type="text" maxlength="6"
+                placeholder="6-digit code" style="letter-spacing:.15em;font-size:20px;text-align:center;"
+                autocomplete="off">
               <button class="btn-primary" id="btn-verify-otp">Verify</button>
             </div>
           </div>
           <p class="otp-error" id="otp-error" hidden></p>
         </div>
 
+        <!-- Access granted -->
         <div class="access-status granted" id="access-status-granted" hidden>
           <i class="dot dot-sage"></i>
           <span>Access granted by patient — full record unlocked</span>
         </div>
 
+        <!-- Patient record card (locked until consent) -->
         <div class="patient-record-card" id="patient-record-card">
           <p class="panel-title">Patient details</p>
           <div class="locked-overlay" id="record-locked-overlay">
@@ -160,6 +230,6 @@
   </div>
 </section>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

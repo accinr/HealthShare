@@ -23,7 +23,6 @@
   <div class="app-body">
     <div class="welcome-banner">
       <div>
-        <!-- Populated by app.js from session -->
         <p class="welcome-title" id="patient-welcome-name">Loading…</p>
         <p class="welcome-sub">Health ID <span class="mono" id="patient-health-id">—</span></p>
       </div>
@@ -32,23 +31,39 @@
       </div>
     </div>
 
-    <!-- TOP-LEVEL OTP ALERT — always visible, regardless of active tab -->
+    <!-- TOP-LEVEL ACCESS REQUEST CARD — always visible across tabs -->
     <div class="panel pending-request" id="pending-otp-card" hidden>
       <div class="pending-head">
         <i class="dot dot-amber"></i>
         <p class="pending-title">Access request — action needed</p>
       </div>
-      <p class="pending-body">
-        <span class="mono" id="pending-doctor-name">Doctor</span> is requesting access to your records.
+
+      <!-- Doctor identity -->
+      <p class="pending-body" style="margin-bottom:4px;">
+        <strong id="pending-doctor-name">Doctor</strong>
       </p>
-      <p class="pending-body">Approve to reveal your one-time access code, then share it with the doctor verbally. The request expires in 5 minutes if you don't respond.</p>
+      <p class="pending-body" style="margin-top:0;color:var(--muted,#888);font-size:13px;">
+        Hospital: <span id="pending-hospital-name">—</span>
+      </p>
+      <p class="pending-body" style="margin:6px 0 2px;">wants to access your records.</p>
+
+      <!-- Requested record types -->
+      <p class="pending-body" style="margin:10px 0 4px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.04em;">Requested records:</p>
+      <ul id="pending-record-types" style="margin:0 0 10px 18px;padding:0;font-size:14px;color:var(--text,#1a1a1a);"></ul>
+
+      <!-- Reason -->
+      <p class="pending-body" style="margin:6px 0 4px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.04em;">Reason:</p>
+      <p class="pending-body" id="pending-reason" style="margin:0 0 14px;font-style:italic;"></p>
+
+      <!-- After approval: show the OTP to patient so they can confirm the doctor got it -->
       <div id="pending-otp-reveal" hidden style="margin:12px 0;padding:12px;background:var(--surface-alt,#f0ede6);border-radius:8px;text-align:center;">
-        <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Your one-time access code — share this with the doctor</p>
-        <p class="mono" id="pending-otp-code" style="font-size:28px;font-weight:700;letter-spacing:.15em;margin:0;"></p>
+        <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Access approved — the doctor now has a one-time code on their dashboard</p>
+        <p style="font-size:12px;color:var(--muted);margin:4px 0 0;">They must type it manually to complete verification.</p>
       </div>
+
       <div class="pending-actions">
-        <button class="btn-primary" id="btn-confirm-otp-issued">Approve &amp; show code</button>
-        <button class="btn-ghost" id="btn-deny-otp">Deny request</button>
+        <button class="btn-primary" id="btn-confirm-otp-issued">Approve</button>
+        <button class="btn-ghost" id="btn-deny-otp">Deny</button>
       </div>
     </div>
 
@@ -92,14 +107,10 @@
       <div class="panel">
         <p class="panel-title">Active consents</p>
         <p class="panel-sub">These providers currently have access to your full record. Revoke access at any time.</p>
-        <div class="consent-list" id="consent-list">
-          <!-- Populated dynamically -->
-        </div>
+        <div class="consent-list" id="consent-list"></div>
         <div class="empty-state" id="consent-empty">
           <p>No providers currently have access to your records.</p>
         </div>
-        <!-- Pending OTP requests now appear in the alert at the top of the page,
-             visible on every tab, the moment a doctor requests access. -->
       </div>
     </div>
 
@@ -112,6 +123,6 @@
   </div>
 </section>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
