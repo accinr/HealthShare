@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HealthShare — Set Your Password</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* ── First-login page specific styles ── */
+  .first-login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg, #f5f2eb);
+    padding: 24px 16px;
+  }
+
+  .first-login-card {
+    background: var(--surface, #fff);
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 440px;
+  }
+
+  .first-login-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .first-login-brand .brand-mark {
+    width: 40px; height: 40px;
+    background: var(--ink, #1a1a1a);
+    color: #fff;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800; letter-spacing: -.02em;
+  }
+
+  .first-login-brand .brand-name {
+    font-size: 18px; font-weight: 700;
+    color: var(--ink, #1a1a1a);
+  }
+
+  .first-login-alert {
+    background: #fff8e1;
+    border: 1px solid #f0c040;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+    font-size: 13px;
+    color: #5a4000;
+    line-height: 1.6;
+  }
+
+  .first-login-alert strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #3a2800;
+  }
+
+  .first-login-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink, #1a1a1a);
+    margin: 0 0 6px;
+  }
+
+  .first-login-sub {
+    font-size: 14px;
+    color: var(--muted, #888);
+    margin: 0 0 28px;
+    line-height: 1.5;
+  }
+
+  .strength-bar-wrap {
+    height: 4px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    margin: 6px 0 4px;
+    overflow: hidden;
+  }
+
+  .strength-bar {
+    height: 100%;
+    border-radius: 4px;
+    width: 0%;
+    transition: width .3s, background .3s;
+  }
+
+  .strength-label {
+    font-size: 11px;
+    color: var(--muted, #888);
+    margin-bottom: 16px;
+  }
+
+  .success-screen {
+    text-align: center;
+    padding: 16px 0;
+  }
+
+  .success-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+
+  .success-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ink, #1a1a1a);
+    margin-bottom: 8px;
+  }
+
+  .success-sub {
+    font-size: 14px;
+    color: var(--muted, #888);
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .redirect-note {
+    font-size: 12px;
+    color: var(--muted, #aaa);
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="first-login-wrap">
+  <div class="first-login-card">
+
+    <!-- Brand -->
+    <div class="first-login-brand">
+      <div class="brand-mark">H+</div>
+      <div class="brand-name">HealthShare</div>
+    </div>
+
+    <!-- Change password form (shown by default) -->
+    <div id="change-pw-form">
+      <div class="first-login-alert">
+        <strong>⚠️ Password change required</strong>
+        You are using a temporary password. You must set a new personal
+        password before you can access your dashboard.
+      </div>
+
+      <p class="first-login-title">Set your password</p>
+      <p class="first-login-sub" id="fl-welcome-sub">Welcome — please create a secure password to continue.</p>
+
+      <label class="field-label" for="fl-current">Temporary password</label>
+      <input class="field-input" id="fl-current" type="password"
+             placeholder="Enter the password from your email"
+             autocomplete="current-password">
+
+      <label class="field-label" for="fl-new">New password</label>
+      <input class="field-input" id="fl-new" type="password"
+             placeholder="Min. 8 characters"
+             autocomplete="new-password">
+
+      <!-- Password strength indicator -->
+      <div class="strength-bar-wrap">
+        <div class="strength-bar" id="strength-bar"></div>
+      </div>
+      <p class="strength-label" id="strength-label">Enter a password to see its strength</p>
+
+      <label class="field-label" for="fl-confirm">Confirm new password</label>
+      <input class="field-input" id="fl-confirm" type="password"
+             placeholder="Repeat new password"
+             autocomplete="new-password">
+
+      <p class="auth-error" id="fl-error" hidden></p>
+
+      <button class="btn-primary full" id="btn-fl-submit" style="margin-top:8px;">
+        Set password &amp; continue
+      </button>
+    </div>
+
+    <!-- Success screen (shown after password is changed) -->
+    <div id="success-screen" class="success-screen" hidden>
+      <div class="success-icon">✅</div>
+      <p class="success-title">Password updated!</p>
+      <p class="success-sub">Your new password has been saved.<br>Taking you to your dashboard now…</p>
+      <div class="redirect-note" id="redirect-countdown"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+//  first_login.html — force password change on first login
+//  Works for: hospital_admin, doctor, emergency
+//  The token is passed via sessionStorage by login logic in app.js
+// ─────────────────────────────────────────────────────────────
+
+// Role → dashboard page map
+const DASHBOARDS = {
+  hospital_admin : 'hospital-admin.html',
+  doctor         : 'doctor.html',
+  emergency      : 'emergency.html',
+  system_admin   : 'system-admin.html',
+  patient        : 'patient.html',
+};
+
+// Pull auth token & user from sessionStorage (set by app.js after login)
+const token = sessionStorage.getItem('authToken');
+const user  = JSON.parse(sessionStorage.getItem('authUser') || 'null');
+
+// If somehow no token/user — send back to login
+if (!token || !user) {
+  window.location.href = 'login.html';
+}
+
+// Personalise the subtitle
+const sub = document.getElementById('fl-welcome-sub');
+if (sub && user?.full_name) {
+  sub.textContent = `Welcome, ${user.full_name}. Please create a secure password to continue.`;
+}
+
+// ── Password strength indicator ──────────────────────────────
+const strengthBar   = document.getElementById('strength-bar');
+const strengthLabel = document.getElementById('strength-label');
+
+const STRENGTH_LEVELS = [
+  { min: 0,  max: 20,  label: 'Too weak',  color: '#e74c3c', width: '15%' },
+  { min: 20, max: 40,  label: 'Weak',      color: '#e67e22', width: '30%' },
+  { min: 40, max: 60,  label: 'Fair',      color: '#f1c40f', width: '55%' },
+  { min: 60, max: 80,  label: 'Good',      color: '#2ecc71', width: '75%' },
+  { min: 80, max: 101, label: 'Strong',    color: '#27ae60', width: '100%' },
+];
+
+function scorePassword(pw) {
+  let score = 0;
+  if (!pw) return 0;
+  if (pw.length >= 8)  score += 20;
+  if (pw.length >= 12) score += 15;
+  if (/[A-Z]/.test(pw)) score += 20;
+  if (/[a-z]/.test(pw)) score += 15;
+  if (/[0-9]/.test(pw)) score += 15;
+  if (/[^A-Za-z0-9]/.test(pw)) score += 15;
+  return Math.min(score, 100);
+}
+
+document.getElementById('fl-new').addEventListener('input', function () {
+  const score = scorePassword(this.value);
+  const level = STRENGTH_LEVELS.find(l => score >= l.min && score < l.max)
+             || STRENGTH_LEVELS[0];
+  strengthBar.style.width      = level.width;
+  strengthBar.style.background = level.color;
+  strengthLabel.textContent    = this.value ? `Strength: ${level.label}` : 'Enter a password to see its strength';
+  strengthLabel.style.color    = this.value ? level.color : '#aaa';
+});
+
+// ── Submit ────────────────────────────────────────────────────
+document.getElementById('btn-fl-submit').addEventListener('click', async () => {
+  const current_password = document.getElementById('fl-current').value;
+  const new_password     = document.getElementById('fl-new').value.trim();
+  const confirm          = document.getElementById('fl-confirm').value.trim();
+  const errEl            = document.getElementById('fl-error');
+
+  errEl.hidden = true; errEl.textContent = '';
+
+  if (!current_password) {
+    errEl.textContent = 'Please enter your temporary password.';
+    errEl.hidden = false; return;
+  }
+  if (!new_password || new_password.length < 8) {
+    errEl.textContent = 'New password must be at least 8 characters.';
+    errEl.hidden = false; return;
+  }
+  if (new_password !== confirm) {
+    errEl.textContent = 'Passwords do not match.';
+    errEl.hidden = false; return;
+  }
+  if (scorePassword(new_password) < 20) {
+    errEl.textContent = 'Password is too weak. Add uppercase letters, numbers or symbols.';
+    errEl.hidden = false; return;
+  }
+
+  const btn = document.getElementById('btn-fl-submit');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    const res  = await fetch('change_password.php', {
+      method  : 'POST',
+      headers : {
+        'Content-Type'  : 'application/json',
+        'X-Auth-Token'  : token,
+      },
+      body: JSON.stringify({ current_password, new_password }),
+    });
+    const data = await res.json();
+
+    if (!data.ok) {
+      errEl.textContent = data.error || 'Password update failed. Please try again.';
+      errEl.hidden = false;
+      btn.disabled = false; btn.textContent = 'Set password & continue';
+      return;
+    }
+
+    // ── Success — show success screen then redirect ────────
+    document.getElementById('change-pw-form').hidden = true;
+    document.getElementById('success-screen').hidden = false;
+
+    const dashboard = DASHBOARDS[user.role] || 'login.html';
+    let secs = 3;
+    const countdown = document.getElementById('redirect-countdown');
+    countdown.textContent = `Redirecting in ${secs}s…`;
+
+    const timer = setInterval(() => {
+      secs--;
+      if (secs <= 0) {
+        clearInterval(timer);
+        window.location.href = dashboard;
+      } else {
+        countdown.textContent = `Redirecting in ${secs}s…`;
+      }
+    }, 1000);
+
+  } catch (err) {
+    errEl.textContent = 'Network error. Please try again.';
+    errEl.hidden = false;
+    btn.disabled = false; btn.textContent = 'Set password & continue';
+  }
+});
+</script>
+</body>
+</html>

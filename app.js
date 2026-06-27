@@ -226,12 +226,26 @@ if (btnLogin) {
 
     if (!data.ok) { showError(errEl, data.error || 'Login failed.', data._raw); return; }
 
+    // Save token — must happen before any redirect
     if (data.token) sessionStorage.setItem('authToken', data.token);
 
+    // Store user so first_login.html knows the role and can redirect correctly
+    sessionStorage.setItem('authUser', JSON.stringify(data.user));
+
+    // Roles that must change password on first login (system_admin excluded)
+    const mustChangePw = ['doctor', 'hospital_admin', 'emergency'];
+
+    if (data.password_changed === 0 && mustChangePw.includes(data.user.role)) {
+      window.location.href = 'first_login.html';
+      return;
+    }
+
     const pageMap = {
-      patient: 'patient.html', doctor: 'doctor.html',
-      hospital_admin: 'hospital-admin.html',
-      system_admin: 'system-admin.html', emergency: 'emergency.html',
+      patient        : 'patient.html',
+      doctor         : 'doctor.html',
+      hospital_admin : 'hospital-admin.html',
+      system_admin   : 'system-admin.html',
+      emergency      : 'emergency.html',
     };
     window.location.href = pageMap[data.user.role] || 'login.html';
   });

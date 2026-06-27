@@ -34,9 +34,10 @@ if (password_verify($new_password, $row['password_hash'])) {
     json_err('New password must be different from the current password.');
 }
 
-// Hash and save
+// Hash and save; also mark password_changed = 1 so the first-login
+// redirect never triggers again for this user.
 $new_hash = password_hash($new_password, PASSWORD_BCRYPT);
-db()->prepare('UPDATE users SET password_hash = ? WHERE user_id = ?')
+db()->prepare('UPDATE users SET password_hash = ?, password_changed = 1 WHERE user_id = ?')
     ->execute([$new_hash, $user['user_id']]);
 
 audit($user['user_id'], 'password_changed', 'User changed their own password');
