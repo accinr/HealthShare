@@ -100,4 +100,13 @@ try {
     error_log('audit() failed in login.php: ' . $e->getMessage());
 }
 
-json_ok(['user' => $session_user, 'token' => $token]);
+// Tell the frontend whether this is a first login (temp password not yet changed)
+$pw_changed = db()->prepare('SELECT password_changed FROM users WHERE user_id = ?');
+$pw_changed->execute([$user_id]);
+$password_changed = (int)($pw_changed->fetchColumn() ?? 1);
+
+json_ok([
+    'user'             => $session_user,
+    'token'            => $token,
+    'password_changed' => $password_changed, // 0 = must change password first
+]);
