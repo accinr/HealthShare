@@ -11,7 +11,8 @@ $patient_id = trim($_GET['patient_id'] ?? '');
 if (!$patient_id) json_err('Patient ID is required.');
 
 $stmt = db()->prepare(
-    'SELECT id, used, patient_approved, otp, expires_at, created_at
+    'SELECT id, used, patient_approved, otp, expires_at, created_at,
+            GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS seconds_remaining
        FROM otp_requests
       WHERE patient_id = ? AND doctor_id = ?
       ORDER BY created_at DESC
@@ -54,9 +55,10 @@ if (strtotime($req['expires_at']) < time()) {
 // Patient approved and OTP is live — show it to the doctor
 if ((int)$req['patient_approved'] === 1) {
     json_ok([
-        'status'     => 'approved',
-        'otp'        => $req['otp'],
-        'expires_at' => $req['expires_at'],
+        'status'            => 'approved',
+        'otp'               => $req['otp'],
+        'expires_at'        => $req['expires_at'],
+        'seconds_remaining' => (int)$req['seconds_remaining'],
     ]);
 }
 

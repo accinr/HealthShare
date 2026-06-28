@@ -233,7 +233,7 @@ if (btnLogin) {
     sessionStorage.setItem('authUser', JSON.stringify(data.user));
 
     // Roles that must change password on first login (system_admin excluded)
-    const mustChangePw = ['doctor', 'hospital_admin', 'emergency'];
+    const mustChangePw = ['patient', 'doctor', 'hospital_admin', 'emergency'];
 
     if (data.password_changed === 0 && mustChangePw.includes(data.user.role)) {
       window.location.href = 'first_login.html';
@@ -252,50 +252,6 @@ if (btnLogin) {
 
   document.getElementById('login-pass')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') btnLogin.click();
-  });
-}
-
-const btnRegister = document.getElementById('btn-register');
-if (btnRegister) {
-  btnRegister.addEventListener('click', async () => {
-    const full_name      = document.getElementById('reg-name').value.trim();
-    const national_id    = document.getElementById('reg-national-id').value.trim();
-    const phone          = document.getElementById('reg-phone').value.trim();
-    const password       = document.getElementById('reg-pass').value;
-    const confirm_pass   = document.getElementById('reg-confirm-pass').value;
-    const errEl          = document.getElementById('reg-error');
-    clearError(errEl);
-    if (!full_name)   { showError(errEl, 'Please enter your full name.'); return; }
-    if (full_name.length < 3) { showError(errEl, 'Full name must be at least 3 characters.'); return; }
-    if (!national_id) { showError(errEl, 'Please enter your national ID number.'); return; }
-    if (!/^\d{7,9}$/.test(national_id)) { showError(errEl, 'National ID must be 7–9 digits.'); return; }
-    if (!phone) { showError(errEl, 'Please enter your phone number.'); return; }
-    if (!/^0[0-9]{9}$/.test(phone.replace(/\s/g, ''))) { showError(errEl, 'Enter a valid Kenyan phone number (e.g. 0712345678).'); return; }
-    if (!password) { showError(errEl, 'Please create a password.'); return; }
-    if (password.length < 8) { showError(errEl, 'Password must be at least 8 characters.'); return; }
-    if (!/[A-Z]/.test(password)) { showError(errEl, 'Password must contain at least one uppercase letter.'); return; }
-    if (!/[0-9]/.test(password)) { showError(errEl, 'Password must contain at least one number.'); return; }
-    if (password !== confirm_pass) { showError(errEl, 'Passwords do not match.'); return; }
-
-    btnRegister.disabled = true; btnRegister.textContent = 'Creating account…';
-    const data = await apiPost('register_patient.php', { full_name, national_id, phone, password });
-    btnRegister.disabled = false; btnRegister.textContent = 'Create account';
-
-    if (!data.ok) { showError(errEl, data.error || 'Registration failed.', data._raw); return; }
-
-    document.getElementById('hid-value').textContent = data.health_id;
-    document.getElementById('hid-result').hidden = false;
-    btnRegister.hidden = true;
-    document.getElementById('login-id').value   = data.health_id;
-    document.getElementById('login-role').value = 'patient';
-    if (typeof updateRoleHint === 'function') updateRoleHint();
-  });
-
-  document.getElementById('btn-go-login')?.addEventListener('click', () => {
-    document.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.pane === 'pane-login'));
-    document.querySelectorAll('.auth-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-login'));
-    document.getElementById('hid-result').hidden = true;
-    btnRegister.hidden = false;
   });
 }
 
@@ -319,6 +275,10 @@ if (document.getElementById('screen-patient')) {
       setText('stat-records', stats.records);
       setText('stat-prescriptions', stats.prescriptions);
       setText('patient-consent-count', stats.active_consents);
+      if (stats.primary_hospital) {
+        const hospEl = document.getElementById('patient-primary-hospital');
+        if (hospEl) hospEl.textContent = 'Primary Hospital: ' + stats.primary_hospital;
+      }
     }
 
     await loadPatientRecords();
@@ -424,13 +384,43 @@ if (document.getElementById('screen-patient')) {
         : '<li style="color:var(--muted)">Not specified</li>';
     }
 
-    // If patient already approved, hide the buttons and show the confirmation note
+    // If patient already approved, hide the buttons and show live countdown
     if (data.patient_approved) {
       const actions = card.querySelector('.pending-actions');
       if (actions) actions.hidden = true;
       const reveal = document.getElementById('pending-otp-reveal');
       if (reveal) reveal.hidden = false;
+      // Start/update live countdown from server-supplied seconds_remaining
+      if (typeof data.seconds_remaining === 'number') {
+        startPatientCountdown(data.seconds_remaining);
+      }
     }
+  }
+
+  // Live countdown shown to patient after they approve
+  let _patientCountdownTimer = null;
+  function startPatientCountdown(secondsLeft) {
+    if (_patientCountdownTimer) clearInterval(_patientCountdownTimer);
+    const el = document.getElementById('patient-otp-countdown');
+    function tick() {
+      if (!el) return;
+      if (secondsLeft <= 0) {
+        clearInterval(_patientCountdownTimer);
+        el.textContent = 'This OTP has expired. The doctor must request access again.';
+        el.style.color = 'var(--coral,#e74c3c)';
+        // Hide approve button if somehow still visible
+        const actions = document.getElementById('pending-otp-card')?.querySelector('.pending-actions');
+        if (actions) actions.hidden = true;
+        return;
+      }
+      const m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+      const s = String(secondsLeft % 60).padStart(2, '0');
+      el.textContent = `OTP expires in ${m}:${s}`;
+      el.style.color = secondsLeft <= 60 ? 'var(--coral,#e74c3c)' : 'var(--muted,#888)';
+      secondsLeft--;
+    }
+    tick();
+    _patientCountdownTimer = setInterval(tick, 1000);
   }
 
   // Re-open card if banner is clicked
@@ -456,6 +446,11 @@ if (document.getElementById('screen-patient')) {
       const card = document.getElementById('pending-otp-card');
       const actions = card?.querySelector('.pending-actions');
       if (actions) actions.hidden = true;
+
+      // Start live countdown from server-supplied seconds_remaining
+      if (typeof res.seconds_remaining === 'number') {
+        startPatientCountdown(res.seconds_remaining);
+      }
 
       await loadNotifications();
     } else {
@@ -538,6 +533,38 @@ if (document.getElementById('screen-doctor')) {
     if (_doctorOtpPollTimer) { clearInterval(_doctorOtpPollTimer); _doctorOtpPollTimer = null; }
   }
 
+  let _doctorCountdownTimer = null;
+  function startDoctorCountdown(secondsLeft) {
+    if (_doctorCountdownTimer) clearInterval(_doctorCountdownTimer);
+    const expiryEl = document.getElementById('doctor-otp-expiry');
+    function tick() {
+      if (!expiryEl) return;
+      if (secondsLeft <= 0) {
+        clearInterval(_doctorCountdownTimer);
+        expiryEl.textContent = 'This OTP has expired. Please request access again.';
+        expiryEl.style.color = 'var(--coral,#e74c3c)';
+        // Hide OTP display and entry form on expiry
+        const otpDisplay = document.getElementById('doctor-approved-otp');
+        if (otpDisplay) otpDisplay.textContent = '——————';
+        const entryEl = document.getElementById('doctor-otp-entry');
+        if (entryEl) entryEl.hidden = true;
+        const errEl = document.getElementById('otp-error');
+        if (errEl) {
+          errEl.textContent = 'This OTP has expired. Please request access again.';
+          errEl.hidden = false;
+        }
+        return;
+      }
+      const m = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+      const s = String(secondsLeft % 60).padStart(2, '0');
+      expiryEl.textContent = `Expires in ${m}:${s}`;
+      expiryEl.style.color = secondsLeft <= 60 ? 'var(--coral,#e74c3c)' : '';
+      secondsLeft--;
+    }
+    tick();
+    _doctorCountdownTimer = setInterval(tick, 1000);
+  }
+
   // Poll for patient approval. When approved, show the OTP for doctor to type manually.
   function startDoctorOtpPoll(patientId) {
     stopDoctorOtpPoll();
@@ -564,18 +591,36 @@ if (document.getElementById('screen-doctor')) {
         const otpDisplay = document.getElementById('doctor-approved-otp');
         if (otpDisplay && data.otp) otpDisplay.textContent = data.otp;
 
-        const expiryEl = document.getElementById('doctor-otp-expiry');
-        if (expiryEl && data.expires_at) {
-          const mins = Math.max(0, Math.round((new Date(data.expires_at) - new Date()) / 60000));
-          expiryEl.textContent = `Expiry: ${mins} minute${mins !== 1 ? 's' : ''}`;
-        }
-
-        // Show the manual entry form — NOT pre-filled
+        // Show the manual entry form — NOT pre-filled; do NOT auto-fill or auto-verify
         const entryEl = document.getElementById('doctor-otp-entry');
         if (entryEl) entryEl.hidden = false;
-        // Do NOT auto-fill; do NOT auto-verify
         document.getElementById('doctor-otp-input')?.focus();
 
+        // Start live MM:SS countdown from server-supplied seconds_remaining
+        if (typeof data.seconds_remaining === 'number') {
+          startDoctorCountdown(data.seconds_remaining);
+        }
+
+      } else if (data.status === 'expired') {
+        stopDoctorOtpPoll();
+        const titleEl = document.getElementById('otp-card-title');
+        if (titleEl) titleEl.textContent = 'OTP Expired';
+        if (statusEl) statusEl.textContent = '';
+        const expiryEl = document.getElementById('doctor-otp-expiry');
+        if (expiryEl) {
+          expiryEl.textContent = 'This OTP has expired. Please request access again.';
+          expiryEl.style.color = 'var(--coral,#e74c3c)';
+        }
+        // Hide the OTP code and entry form
+        const otpDisplay = document.getElementById('doctor-approved-otp');
+        if (otpDisplay) otpDisplay.textContent = '——————';
+        const entryEl = document.getElementById('doctor-otp-entry');
+        if (entryEl) entryEl.hidden = true;
+        const errEl = document.getElementById('otp-error');
+        if (errEl) {
+          errEl.textContent = 'This OTP has expired. Please request access again.';
+          errEl.hidden = false;
+        }
       } else if (data.status === 'access_granted') {
         stopDoctorOtpPoll();
         await grantDoctorAccess(patientId);
@@ -734,10 +779,28 @@ if (document.getElementById('screen-doctor')) {
     _currentPatientId = p.user_id;
 
     // Populate and show the found-patient card
-    setText('found-name',     p.full_name);
-    setText('found-hid',      p.user_id);
-    setText('found-facility', p.primary_facility || 'No hospital on record');
-    setText('found-phone',    p.phone || '—');
+    setText('found-name',  p.full_name);
+    setText('found-hid',   p.user_id);
+    setText('found-phone', p.phone || '—');
+
+    // Primary hospital + cross-hospital indicator
+    const facilityText = p.primary_facility || 'No primary hospital set';
+    const facilityEl   = document.getElementById('found-facility');
+    if (facilityEl) {
+      facilityEl.textContent = facilityText;
+      // Remove any old badge
+      const oldBadge = document.getElementById('cross-hospital-badge');
+      if (oldBadge) oldBadge.remove();
+      if (p.cross_hospital) {
+        const badge = document.createElement('span');
+        badge.id = 'cross-hospital-badge';
+        badge.style.cssText = 'display:inline-block;margin-left:8px;padding:2px 8px;'
+          + 'background:#fff3cd;border:1px solid #ffc107;border-radius:4px;'
+          + 'font-size:11px;font-weight:600;color:#856404;';
+        badge.textContent = 'Cross-Hospital Access Required';
+        facilityEl.after(badge);
+      }
+    }
     document.getElementById('doc-found-patient-card').hidden = false;
 
     // Show the access-locked status and the request form
@@ -888,7 +951,200 @@ if (document.getElementById('screen-hospital-admin')) {
     loadDoctors();
     loadEmergencyPersonnel();
     loadHAauditLog();
+    loadPatients();
   })();
+
+  // ── Patient helpers ───────────────────────────────────────────
+
+  async function loadPatients() {
+    const data  = await apiGet('get_patients.php');
+    const tbody = document.getElementById('patient-list-tbody');
+    if (!tbody) return;
+    const patients = data.ok ? data.patients : [];
+    setText('ha-stat-patients', patients.length);
+    tbody.innerHTML = !patients.length
+      ? '<tr><td colspan="6" class="empty-cell">No patients registered yet.</td></tr>'
+      : patients.map(p => `<tr>
+          <td>${p.full_name}</td>
+          <td class="mono">${p.health_id}</td>
+          <td class="mono">${p.national_id ?? '—'}</td>
+          <td>${p.phone ?? '—'}</td>
+          <td>${p.registered_at ? new Date(p.registered_at).toLocaleDateString('en-KE',{day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+          <td>
+            <a href="#" class="link-edit-patient" data-hid="${p.health_id}" style="margin-right:8px;">Edit</a>
+            <a href="#" class="link-reissue-patient" data-hid="${p.health_id}" data-name="${p.full_name}">Reissue</a>
+          </td>
+        </tr>`).join('');
+
+    // Store patient data for edit pre-fill
+    tbody._patients = patients;
+
+    tbody.querySelectorAll('.link-edit-patient').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        const hid = link.dataset.hid;
+        const pt  = tbody._patients.find(x => x.health_id === hid);
+        if (!pt) return;
+        openEditPanel(pt);
+      });
+    });
+
+    tbody.querySelectorAll('.link-reissue-patient').forEach(link => {
+      link.addEventListener('click', async e => {
+        e.preventDefault();
+        if (!confirm(`Reissue credentials for ${link.dataset.name}? Their current password will be invalidated.`)) return;
+        const data = await apiPost('reissue_patient_credentials.php', { health_id: link.dataset.hid });
+        if (!data.ok) { alert('Failed: ' + (data.error || 'Unknown error')); return; }
+        showPatientCredModal('Credentials reissued', data.full_name, data.health_id, data.temp_password, data.email_sent);
+      });
+    });
+  }
+
+  function openEditPanel(pt) {
+    const panel = document.getElementById('pt-edit-panel');
+    if (!panel) return;
+    panel.hidden = false;
+    setText('pt-edit-name', pt.full_name + ' · ' + pt.health_id);
+    document.getElementById('pt-edit-health-id').value  = pt.health_id;
+    document.getElementById('pt-edit-phone').value      = pt.phone      ?? '';
+    document.getElementById('pt-edit-email').value      = pt.email      ?? '';
+    document.getElementById('pt-edit-blood').value      = pt.blood_type ?? '';
+    document.getElementById('pt-edit-allergies').value  = pt.allergies  ?? '';
+    document.getElementById('pt-edit-emergency').value  = pt.emergency_contact ?? '';
+    document.getElementById('pt-edit-kin').value        = pt.next_of_kin       ?? '';
+    clearError(document.getElementById('pt-edit-error'));
+    document.getElementById('pt-edit-success').hidden = true;
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  document.getElementById('btn-cancel-patient-edit')?.addEventListener('click', () => {
+    const panel = document.getElementById('pt-edit-panel');
+    if (panel) panel.hidden = true;
+  });
+
+  document.getElementById('btn-save-patient-edit')?.addEventListener('click', async () => {
+    const health_id        = document.getElementById('pt-edit-health-id').value;
+    const phone            = document.getElementById('pt-edit-phone').value.trim();
+    const email            = document.getElementById('pt-edit-email').value.trim();
+    const blood_type       = document.getElementById('pt-edit-blood').value;
+    const allergies        = document.getElementById('pt-edit-allergies').value.trim();
+    const emergency_contact = document.getElementById('pt-edit-emergency').value.trim();
+    const next_of_kin      = document.getElementById('pt-edit-kin').value.trim();
+    const errEl   = document.getElementById('pt-edit-error');
+    const succEl  = document.getElementById('pt-edit-success');
+    clearError(errEl); succEl.hidden = true;
+
+    const btn = document.getElementById('btn-save-patient-edit');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    const data = await apiPost('update_patient.php', {
+      health_id, phone, email, blood_type, allergies, emergency_contact, next_of_kin
+    });
+    btn.disabled = false; btn.textContent = 'Save changes';
+
+    if (!data.ok) { showError(errEl, data.error || 'Update failed.'); return; }
+    succEl.textContent = '✓ Patient demographics updated.';
+    succEl.hidden = false;
+    await loadPatients();
+  });
+
+  // ── Register patient ──────────────────────────────────────────
+
+  document.getElementById('btn-register-patient')?.addEventListener('click', async () => {
+    const full_name         = document.getElementById('ha-pt-name').value.trim();
+    const national_id       = document.getElementById('ha-pt-national-id').value.trim();
+    const phone             = document.getElementById('ha-pt-phone').value.trim();
+    const email             = document.getElementById('ha-pt-email').value.trim();
+    const date_of_birth     = document.getElementById('ha-pt-dob').value;
+    const gender            = document.getElementById('ha-pt-gender').value;
+    const blood_type        = document.getElementById('ha-pt-blood').value;
+    const allergies         = document.getElementById('ha-pt-allergies').value.trim();
+    const emergency_contact = document.getElementById('ha-pt-emergency').value.trim();
+    const next_of_kin       = document.getElementById('ha-pt-kin').value.trim();
+    const errEl             = document.getElementById('pt-reg-error');
+    clearError(errEl);
+
+    if (!full_name)          { showError(errEl, 'Full name is required.'); return; }
+    if (full_name.length < 3){ showError(errEl, 'Full name must be at least 3 characters.'); return; }
+    if (!national_id)        { showError(errEl, 'National ID is required.'); return; }
+    if (!/^\d{7,9}$/.test(national_id)) { showError(errEl, 'National ID must be 7–9 digits.'); return; }
+    if (!phone)              { showError(errEl, 'Phone number is required.'); return; }
+    if (!/^0[0-9]{9}$/.test(phone.replace(/\s/g,''))) { showError(errEl, 'Enter a valid Kenyan phone number (e.g. 0712345678).'); return; }
+    if (!date_of_birth)      { showError(errEl, 'Date of birth is required.'); return; }
+    if (!gender)             { showError(errEl, 'Gender is required.'); return; }
+    if (!emergency_contact)  { showError(errEl, 'Emergency contact is required.'); return; }
+    if (!next_of_kin)        { showError(errEl, 'Next of kin is required.'); return; }
+
+    const btn = document.getElementById('btn-register-patient');
+    btn.disabled = true; btn.textContent = 'Registering…';
+    const data = await apiPost('register_patient.php', {
+      full_name, national_id, phone, email, date_of_birth, gender,
+      blood_type, allergies, emergency_contact, next_of_kin
+    });
+    btn.disabled = false; btn.textContent = 'Register patient';
+
+    if (!data.ok) { showError(errEl, data.error || 'Registration failed.', data._raw); return; }
+
+    // Clear form
+    ['ha-pt-name','ha-pt-national-id','ha-pt-phone','ha-pt-email',
+     'ha-pt-dob','ha-pt-allergies','ha-pt-emergency','ha-pt-kin'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    document.getElementById('ha-pt-gender').value = '';
+    document.getElementById('ha-pt-blood').value  = '';
+
+    showPatientCredModal('Patient account created', data.full_name, data.health_id, data.temp_password, data.email_sent);
+    await loadPatients();
+  });
+
+  // ── Patient credential modal ──────────────────────────────────
+
+  function showPatientCredModal(title, name, healthId, tempPassword, emailSent) {
+    document.getElementById('pt-cred-modal-title').textContent = title;
+    setText('pt-cred-name', name);
+    setText('pt-cred-health-id', healthId);
+    setText('pt-cred-password', tempPassword);
+    const noteEl = document.getElementById('pt-cred-email-note');
+    if (emailSent) {
+      noteEl.textContent = '✓ Credentials have been emailed to the patient.';
+      noteEl.hidden = false;
+    } else {
+      noteEl.hidden = true;
+    }
+    // Store for print
+    document.getElementById('patient-cred-modal')._printData = { name, healthId, tempPassword };
+    document.getElementById('patient-cred-modal').hidden = false;
+  }
+
+  document.getElementById('btn-close-patient-cred-modal')?.addEventListener('click', () => {
+    document.getElementById('patient-cred-modal').hidden = true;
+  });
+
+  document.getElementById('btn-print-patient-cred')?.addEventListener('click', () => {
+    const d = document.getElementById('patient-cred-modal')._printData || {};
+    const w = window.open('', '_blank', 'width=480,height=400');
+    w.document.write(`
+      <!DOCTYPE html><html><head><title>HealthShare Credentials</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 32px; }
+        h2   { margin-bottom: 6px; }
+        .row { display: flex; gap: 24px; margin: 10px 0; }
+        .lbl { font-weight: bold; width: 130px; }
+        .val { font-family: monospace; font-size: 1.1em; }
+        .note{ margin-top: 20px; font-size: 12px; color: #555; }
+      </style></head><body>
+      <h2>HealthShare — Patient Credentials</h2>
+      <p>Please keep these details safe and present them on every hospital visit.</p>
+      <div class="row"><span class="lbl">Patient name</span><span class="val">${d.name ?? ''}</span></div>
+      <div class="row"><span class="lbl">Health ID</span><span class="val">${d.healthId ?? ''}</span></div>
+      <div class="row"><span class="lbl">Temp password</span><span class="val">${d.tempPassword ?? ''}</span></div>
+      <p class="note">You will be asked to change this password on first login.<br>
+      Patients are not expected to log in immediately.</p>
+      </body></html>`);
+    w.document.close();
+    w.focus();
+    w.print();
+  });
 
   async function loadDoctors() {
     const data  = await apiGet('get_doctors.php');

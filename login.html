@@ -54,8 +54,7 @@
       <p class="auth-tagline">Kenya national health records portal</p>
 
       <div class="seg-toggle" role="tablist">
-        <button class="seg-btn active" data-pane="pane-login"    role="tab">Log in</button>
-        <button class="seg-btn"        data-pane="pane-register" role="tab">Register</button>
+        <button class="seg-btn active" data-pane="pane-login" role="tab">Log in</button>
       </div>
 
       <!-- ══════════════════════════════════
@@ -96,62 +95,20 @@
 
         <button class="btn-primary full" id="btn-login">Log in</button>
 
-        <p class="auth-switch" id="login-register-link">
-          New patient? <a href="#" data-pane="pane-register" class="link-switch">Register here</a>
-        </p>
+
       </div>
 
       <!-- ══════════════════════════════════
-           REGISTER PANE  (patients only)
+           REGISTER PANE  (replaced — patients registered by hospital staff)
       ══════════════════════════════════ -->
       <div class="auth-pane" id="pane-register">
-
         <div class="role-hint">
-          <span class="role-hint-icon">ℹ️</span>
+          <span class="role-hint-icon">🏥</span>
           <div>
-            <strong>Patient self-registration only</strong>
-            Doctors, nurses, and emergency staff are registered by their hospital admin — not here.
+            <strong>Patient registration</strong>
+            Patients are registered by hospital staff during their first hospital visit.
           </div>
         </div>
-
-        <label class="field-label" for="reg-name">Full name</label>
-        <input class="field-input" id="reg-name" type="text"
-               placeholder="As it appears on your national ID">
-
-        <label class="field-label" for="reg-national-id">National ID number</label>
-        <input class="field-input mono" id="reg-national-id" type="text"
-               placeholder="e.g. 34218765">
-
-        <label class="field-label" for="reg-phone">Phone number</label>
-        <input class="field-input" id="reg-phone" type="tel"
-               placeholder="07XX XXX XXX">
-
-        <label class="field-label" for="reg-pass">Create password</label>
-        <input class="field-input" id="reg-pass" type="password"
-               placeholder="Min. 8 characters, include a number">
-
-        <label class="field-label" for="reg-confirm-pass">Confirm password</label>
-        <input class="field-input" id="reg-confirm-pass" type="password"
-               placeholder="Re-enter your password">
-
-        <p class="auth-error" id="reg-error" hidden></p>
-        <div class="debug-box" id="reg-debug" hidden></div>
-
-        <button class="btn-primary full" id="btn-register">Create account</button>
-
-        <!-- Success card — shown after successful registration -->
-        <div class="hid-result" id="hid-result" hidden>
-          <p class="hid-label">✓ Account created — your Health ID</p>
-          <p class="hid-value mono" id="hid-value">KE-HID-00000</p>
-          <p class="hid-note">
-            This ID links your records across every registered facility in Kenya.
-            <strong>Write it down</strong> — you will need it every time you log in.
-          </p>
-          <button class="btn-primary full" id="btn-go-login" style="margin-top:14px;">
-            Go to login →
-          </button>
-        </div>
-
         <p class="auth-switch">
           Already registered? <a href="#" data-pane="pane-login" class="link-switch">Log in</a>
         </p>
@@ -161,6 +118,6 @@
   </div>
 </section>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

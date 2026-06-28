@@ -22,9 +22,9 @@ $req = $stmt->fetch();
 
 if (!$req) json_err('No pending access request found. It may have already been handled.');
 
-// Generate a 6-digit OTP and set a 5-minute expiry
-$otp        = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
-$expires_at = date('Y-m-d H:i:s', strtotime('+5 minutes'));
+// Generate a 6-digit OTP.
+// Expiry is set by MySQL (NOW() + INTERVAL 5 MINUTE) to avoid PHP/MySQL timezone drift.
+$otp = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
 
 // Try to anchor via blockchain sidecar first so both systems use the same OTP
 $chain = sidecar_post('/approveAccessRequest', [
@@ -34,12 +34,24 @@ $chain = sidecar_post('/approveAccessRequest', [
 ]);
 $blockchain_synced = !empty($chain['ok']);
 
-// Store OTP in MySQL and mark patient as approved
+// Store OTP using MySQL server time — this guarantees the expiry check in verify_otp.php
+// (which uses NOW()) is always consistent regardless of PHP timezone config.
 db()->prepare(
     'UPDATE otp_requests
-        SET otp = ?, expires_at = ?, patient_approved = 1
+        SET otp = ?, expires_at = NOW() + INTERVAL 5 MINUTE, patient_approved = 1
       WHERE id = ?'
-)->execute([$otp, $expires_at, $req['id']]);
+)->execute([$otp, $req['id']]);
+
+// Read back the MySQL-generated expiry and seconds_remaining for the response
+$expiry_row = db()->prepare(
+    'SELECT expires_at,
+            GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), expires_at)) AS seconds_remaining
+       FROM otp_requests WHERE id = ?'
+);
+$expiry_row->execute([$req['id']]);
+$expiry_data  = $expiry_row->fetch();
+$expires_at   = $expiry_data['expires_at'];
+$seconds_left = (int)$expiry_data['seconds_remaining'];
 
 // Blockchain: anchor events (non-fatal)
 sidecar_post('/anchorEvent', [
@@ -72,9 +84,10 @@ audit($patient['user_id'], 'otp_patient_approved', "Doctor: {$req['doctor_id']}"
 audit($patient['user_id'], 'otp_generated',        "Doctor: {$req['doctor_id']}");
 
 json_ok([
-    'message'    => 'Approved. The doctor has been notified.',
-    'otp'        => $otp,
-    'expires_at' => $expires_at,
-    'blockchain' => $blockchain_synced,
-    'sms_sent'   => $sms_sent,
+    'message'          => 'Approved. The doctor has been notified.',
+    'otp'              => $otp,
+    'expires_at'       => $expires_at,
+    'seconds_remaining'=> $seconds_left,
+    'blockchain'       => $blockchain_synced,
+    'sms_sent'         => $sms_sent,
 ]);

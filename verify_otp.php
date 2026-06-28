@@ -16,7 +16,7 @@ if (!$patient_id || !$otp) json_err('Patient ID and OTP are required.');
 // Look up the OTP in MySQL
 $stmt = db()->prepare(
     'SELECT id FROM otp_requests
-     WHERE patient_id = ? AND doctor_id = ? AND otp = ? AND used = 0 AND expires_at > NOW()
+     WHERE patient_id = ? AND doctor_id = ? AND otp = ? AND used = 0 AND patient_approved = 1 AND expires_at > NOW()
      LIMIT 1'
 );
 $stmt->execute([$patient_id, $doctor['user_id'], $otp]);

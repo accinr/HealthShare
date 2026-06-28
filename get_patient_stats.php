@@ -18,8 +18,18 @@ $consents = db()->prepare(
 );
 $consents->execute([$uid]);
 
+// Also fetch primary hospital name for the patient dashboard
+$fac_stmt = db()->prepare(
+    'SELECT f.name FROM patients p
+     LEFT JOIN facilities f ON f.facility_id = p.facility_id
+     WHERE p.user_id = ?'
+);
+$fac_stmt->execute([$uid]);
+$primary_hospital = $fac_stmt->fetchColumn() ?: null;
+
 json_ok([
-    'records'       => (int)$records->fetchColumn(),
-    'prescriptions' => (int)$prescriptions->fetchColumn(),
-    'consents'      => (int)$consents->fetchColumn(),
+    'records'          => (int)$records->fetchColumn(),
+    'prescriptions'    => (int)$prescriptions->fetchColumn(),
+    'consents'         => (int)$consents->fetchColumn(),
+    'primary_hospital' => $primary_hospital,
 ]);

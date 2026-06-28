@@ -11,8 +11,9 @@ CREATE TABLE IF NOT EXISTS users (
   id           INT AUTO_INCREMENT PRIMARY KEY,
   user_id      VARCHAR(20)  UNIQUE NOT NULL,   -- KE-HID-XXXXX / KE-STF-XXXXX / etc.
   role         ENUM('patient','doctor','hospital_admin','system_admin','emergency') NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  password_hash     VARCHAR(255) NOT NULL,
+  password_changed  TINYINT      DEFAULT 1,   -- 0 = temp password, must change on first login
+  created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ─────────────────────────────────────────────────────────────
@@ -49,7 +50,8 @@ CREATE TABLE IF NOT EXISTS doctors (
   full_name      VARCHAR(100) NOT NULL,
   license_no     VARCHAR(30)  NOT NULL,
   specialization VARCHAR(80)  NOT NULL,
-  facility_id    VARCHAR(20)  NOT NULL REFERENCES facilities(facility_id)
+  facility_id    VARCHAR(20)  NOT NULL REFERENCES facilities(facility_id),
+  phone          VARCHAR(20)  NULL
 );
 
 CREATE TABLE IF NOT EXISTS emergency_personnel (
@@ -62,13 +64,19 @@ CREATE TABLE IF NOT EXISTS emergency_personnel (
 );
 
 CREATE TABLE IF NOT EXISTS patients (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  user_id     VARCHAR(20)  NOT NULL REFERENCES users(user_id),
-  full_name   VARCHAR(100) NOT NULL,
-  national_id VARCHAR(20),
-  phone       VARCHAR(20),
-  blood_type  VARCHAR(5)   DEFAULT NULL,
-  allergies   TEXT         DEFAULT NULL
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  user_id           VARCHAR(20)  NOT NULL REFERENCES users(user_id),
+  full_name         VARCHAR(100) NOT NULL,
+  national_id       VARCHAR(20),
+  phone             VARCHAR(20),
+  facility_id       VARCHAR(20)  NULL REFERENCES facilities(facility_id),
+  blood_type        VARCHAR(5)   DEFAULT NULL,
+  allergies         TEXT         DEFAULT NULL,
+  email             VARCHAR(150) NULL,
+  date_of_birth     DATE         NULL,
+  gender            VARCHAR(20)  NULL,
+  emergency_contact VARCHAR(150) NULL,
+  next_of_kin       VARCHAR(150) NULL
 );
 
 -- ─────────────────────────────────────────────────────────────
@@ -136,14 +144,18 @@ WHERE NOT EXISTS (SELECT 1 FROM audit_logs WHERE action = 'genesis_block');
 --  OTP REQUESTS  (so patient can poll and see pending requests)
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS otp_requests (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  patient_id VARCHAR(20) NOT NULL,
-  doctor_id  VARCHAR(20) NOT NULL,
-  otp        VARCHAR(10) NOT NULL,
-  expires_at DATETIME NOT NULL,
-  used       TINYINT DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_patient_pending (patient_id, used, expires_at)
+  id               INT AUTO_INCREMENT PRIMARY KEY,
+  patient_id       VARCHAR(20)  NOT NULL,
+  doctor_id        VARCHAR(20)  NOT NULL,
+  otp              VARCHAR(10)  NULL DEFAULT NULL,        -- NULL until patient approves
+  expires_at       DATETIME     NULL DEFAULT NULL,        -- NULL until OTP is generated
+  reason           TEXT         NULL,                     -- doctor's stated reason
+  record_types     VARCHAR(255) NULL,                     -- JSON array of requested record types
+  hospital_name    VARCHAR(150) NULL,                     -- doctor's facility name (for patient display)
+  patient_approved TINYINT      DEFAULT 0,                -- 1 once patient clicks Approve
+  used             TINYINT      DEFAULT 0,                -- 1 once OTP verified OR request denied
+  created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_patient_pending (patient_id, used)
 );
 
 -- ─────────────────────────────────────────────────────────────

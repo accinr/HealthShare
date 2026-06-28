@@ -11,7 +11,8 @@ $patient_id = $patient['user_id'];
 $stmt = db()->prepare(
     'SELECT o.id, o.doctor_id, o.reason, o.record_types, o.hospital_name,
             o.patient_approved, o.expires_at, o.otp,
-            d.full_name AS doctor_name
+            d.full_name AS doctor_name,
+            GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), o.expires_at)) AS seconds_remaining
        FROM otp_requests o
        JOIN doctors d ON d.user_id = o.doctor_id
       WHERE o.patient_id = ? AND o.used = 0
@@ -39,10 +40,12 @@ $response = [
     'patient_approved' => (bool)$row['patient_approved'],
 ];
 
-// Only include OTP after patient has approved (so they can see it on their screen)
-if ($row['patient_approved'] && $row['otp']) {
-    $response['otp']        = $row['otp'];
-    $response['expires_at'] = $row['expires_at'];
+// After approval, include seconds_remaining so the patient's dashboard
+// can show the same live countdown as the doctor's dashboard.
+if ($row['patient_approved'] && $row['expires_at']) {
+    $response['seconds_remaining'] = (int)$row['seconds_remaining'];
+    $response['expires_at']        = $row['expires_at'];
 }
 
+// Do NOT include the OTP itself — the doctor sees it on their own dashboard.
 json_ok($response);
