@@ -22,6 +22,8 @@ function format_patient(array $p, string $doctor_facility_id): array {
         'user_id'          => $p['user_id'],
         'full_name'        => $p['full_name'],
         'phone'            => $p['phone'],
+        'blood_type'       => $p['blood_type']  ?? null,
+        'allergies'        => $p['allergies']   ?? null,
         'primary_facility' => $p['facility_name'] ?? 'No primary hospital set',
         'cross_hospital'   => $cross_hospital,
     ];
@@ -31,6 +33,7 @@ function format_patient(array $p, string $doctor_facility_id): array {
 if ($patient_id) {
     $stmt = db()->prepare(
         'SELECT p.user_id, p.full_name, p.phone, p.facility_id,
+                p.blood_type, p.allergies,
                 f.name AS facility_name
            FROM patients p
            LEFT JOIN facilities f ON f.facility_id = p.facility_id

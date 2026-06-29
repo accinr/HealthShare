@@ -845,7 +845,7 @@ if (document.getElementById('screen-doctor')) {
       setText('rec-phone',     pData.patient.phone || '—');
       setText('rec-blood',     pData.patient.blood_type || 'Not recorded');
       setText('rec-allergies', pData.patient.allergies || 'None recorded');
-      setText('rec-facility',  _doctorUser?.facility_name || '—');
+      setText('rec-facility',  pData.patient.primary_facility || '—');
     }
 
     await loadDoctorPatientRecords(patientId);
