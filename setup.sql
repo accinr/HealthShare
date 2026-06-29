@@ -75,8 +75,18 @@ CREATE TABLE IF NOT EXISTS patients (
   email             VARCHAR(150) NULL,
   date_of_birth     DATE         NULL,
   gender            VARCHAR(20)  NULL,
+  -- Legacy combined-string fields (kept for backwards compat)
   emergency_contact VARCHAR(150) NULL,
-  next_of_kin       VARCHAR(150) NULL
+  next_of_kin       VARCHAR(150) NULL,
+  -- Structured fields (populated by new registrations)
+  emergency_contact_name         VARCHAR(100) NULL,
+  emergency_contact_relationship VARCHAR(50)  NULL,
+  emergency_contact_phone        VARCHAR(20)  NULL,
+  next_of_kin_name               VARCHAR(100) NULL,
+  next_of_kin_relationship       VARCHAR(50)  NULL,
+  INDEX idx_national_id (national_id),
+  INDEX idx_phone (phone),
+  INDEX idx_email (email)
 );
 
 -- ─────────────────────────────────────────────────────────────
@@ -97,7 +107,7 @@ CREATE TABLE IF NOT EXISTS consents (
   patient_id VARCHAR(20) NOT NULL,
   doctor_id  VARCHAR(20) NOT NULL,
   granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  revoked_at TIMESTAMP DEFAULT NULL,
+  revoked_at DATETIME DEFAULT NULL,
   UNIQUE KEY unique_consent (patient_id, doctor_id)
 );
 

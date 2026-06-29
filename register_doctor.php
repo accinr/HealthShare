@@ -4,7 +4,7 @@
 // Returns: {ok, staff_id, temp_password, full_name, email_sent}
 
 require_once __DIR__ . '/helpers.php';
-require_once __DIR__ . '/send_mail.php';
+require_once __DIR__ . '/NotificationService.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_err('Method not allowed', 405);
 
@@ -74,8 +74,8 @@ sidecar_post('/registerDoctor', [
     'recordHash' => hash('sha256', $staff_id . $license_no . $facility_id),
 ]);
 
-// Send credentials email via PHPMailer (non-fatal)
-$email_sent = send_credentials_email($email, $full_name, [
+// Send email + SMS via NotificationService (non-fatal)
+$notif = (new NotificationService())->notifyStaffRegistered($email, $phone, $full_name, [
     'role'          => 'Doctor',
     'staff_id'      => $staff_id,
     'temp_password' => $temp_password,
@@ -86,5 +86,6 @@ json_ok([
     'staff_id'      => $staff_id,
     'temp_password' => $temp_password,
     'full_name'     => $full_name,
-    'email_sent'    => $email_sent,
+    'email_sent'    => $notif['email_sent'],
+    'sms_sent'      => $notif['sms_sent'],
 ]);

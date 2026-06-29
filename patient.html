@@ -56,11 +56,12 @@
       <p class="pending-body" style="margin:6px 0 4px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.04em;">Reason:</p>
       <p class="pending-body" id="pending-reason" style="margin:0 0 14px;font-style:italic;"></p>
 
-      <!-- After approval: show the OTP to patient so they can confirm the doctor got it -->
+      <!-- After approval: OTP sent to patient's phone via SMS -->
       <div id="pending-otp-reveal" hidden style="margin:12px 0;padding:12px;background:var(--surface-alt,#f0ede6);border-radius:8px;text-align:center;">
-        <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Access approved — the doctor now has a one-time code on their dashboard</p>
-        <p id="patient-otp-countdown" style="font-size:13px;font-weight:600;color:var(--muted,#888);margin:6px 0 2px;">OTP expires in 05:00</p>
-        <p style="font-size:12px;color:var(--muted);margin:4px 0 0;">They must type it manually to complete verification.</p>
+        <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Access approved — verification code sent to your phone</p>
+        <p style="font-size:13px;margin:6px 0 4px;color:var(--text,#1a1a1a);">A 6-digit code has been sent to your phone via SMS.</p>
+        <p style="font-size:13px;font-weight:600;color:var(--text,#1a1a1a);margin:2px 0;">Share it only with the treating doctor.</p>
+        <p id="patient-otp-countdown" style="font-size:12px;font-weight:600;color:var(--muted,#888);margin:8px 0 2px;">Code expires in 05:00</p>
       </div>
 
       <div class="pending-actions">

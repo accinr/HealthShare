@@ -1,8 +1,7 @@
 <?php
 // get_doctor_otp.php — doctor polls this after requesting access.
-// When the patient approves, this returns the generated OTP so the doctor's
-// dashboard can display "Access Approved — OTP: XXXXXX  Expiry: 5 minutes".
-// The doctor must manually type the OTP into the verification field.
+// When the patient approves, the OTP is sent to the PATIENT via SMS.
+// The doctor must ask the patient verbally for the code — it is NOT shown here.
 require_once __DIR__ . '/helpers.php';
 
 $doctor = require_role('doctor');
@@ -34,7 +33,6 @@ if ((int)$req['used'] === 1) {
           LIMIT 1'
     );
     $consent->execute([$patient_id, $doctor['user_id'], $req['created_at']]);
-    // If otp was never generated (patient denied), no consent exists
     if ($consent->fetch()) {
         json_ok(['status' => 'access_granted']);
     } else {
@@ -52,13 +50,15 @@ if (strtotime($req['expires_at']) < time()) {
     json_ok(['status' => 'expired']);
 }
 
-// Patient approved and OTP is live — show it to the doctor
+// Patient approved and OTP is live.
+// OTP is intentionally NOT returned — the patient received it via SMS.
+// The doctor must ask the patient for the code verbally.
 if ((int)$req['patient_approved'] === 1) {
     json_ok([
         'status'            => 'approved',
-        'otp'               => $req['otp'],
         'expires_at'        => $req['expires_at'],
         'seconds_remaining' => (int)$req['seconds_remaining'],
+        // 'otp' is deliberately omitted — doctor must obtain it from the patient
     ]);
 }
 

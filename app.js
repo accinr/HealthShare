@@ -168,7 +168,7 @@ document.querySelectorAll('.side-nav-btn').forEach(btn => {
 const ROLE_HINTS = {
   'patient': {
     icon: '🪪', title: 'Patient login',
-    body: 'Use the Health ID you received when you registered (KE-HID-XXXXX).',
+    body: 'Use your Health ID, National ID, or Phone number to log in.',
     idLabel: 'Health ID', placeholder: 'KE-HID-XXXXX', showRegister: true,
   },
   'doctor': {
@@ -194,16 +194,51 @@ const ROLE_HINTS = {
 };
 
 const loginRoleSelect = document.getElementById('login-role');
+let _patientLoginMethod = 'health_id'; // health_id | national_id | phone
+
+const PATIENT_LOGIN_METHODS = {
+  health_id:   { label: 'Health ID',   placeholder: 'KE-HID-XXXXX', idLabel: 'Health ID' },
+  national_id: { label: 'National ID', placeholder: 'e.g. 34218765', idLabel: 'National ID' },
+  phone:       { label: 'Phone',       placeholder: '07XX XXX XXX',  idLabel: 'Phone number' },
+};
+
 if (loginRoleSelect) {
   function updateRoleHint() {
-    const hint = ROLE_HINTS[loginRoleSelect.value] || ROLE_HINTS['patient'];
+    const role = loginRoleSelect.value;
+    const hint = ROLE_HINTS[role] || ROLE_HINTS['patient'];
     document.getElementById('login-hint-text').innerHTML = `<strong>${hint.title}</strong> — ${hint.body}`;
     document.querySelector('.role-hint-icon').textContent = hint.icon;
-    document.getElementById('login-id-label').textContent = hint.idLabel;
-    document.getElementById('login-id').placeholder = hint.placeholder;
+    const methodDiv = document.getElementById('patient-login-method');
+    if (role === 'patient') {
+      if (methodDiv) methodDiv.hidden = false;
+      applyPatientLoginMethod(_patientLoginMethod);
+    } else {
+      if (methodDiv) methodDiv.hidden = true;
+      document.getElementById('login-id-label').textContent = hint.idLabel;
+      document.getElementById('login-id').placeholder = hint.placeholder;
+    }
     const regLink = document.getElementById('login-register-link');
     if (regLink) regLink.hidden = !hint.showRegister;
   }
+
+  function applyPatientLoginMethod(method) {
+    const m = PATIENT_LOGIN_METHODS[method] || PATIENT_LOGIN_METHODS['health_id'];
+    document.getElementById('login-id-label').textContent = m.idLabel;
+    document.getElementById('login-id').placeholder = m.placeholder;
+    const inp = document.getElementById('login-id');
+    if (inp) { inp.value = ''; inp.focus(); }
+  }
+
+  // Patient login method button clicks
+  document.querySelectorAll('.pat-login-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.pat-login-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _patientLoginMethod = btn.dataset.method;
+      applyPatientLoginMethod(_patientLoginMethod);
+    });
+  });
+
   loginRoleSelect.addEventListener('change', updateRoleHint);
   updateRoleHint();
 }
@@ -257,6 +292,125 @@ if (btnLogin) {
 
 
 // ─────────────────────────────────────────────────────────────
+//  PUBLIC PATIENT REGISTRATION (login page — pane-register)
+// ─────────────────────────────────────────────────────────────
+
+if (document.getElementById('pane-register')) {
+  // Load active hospitals into the dropdown when the register pane becomes visible
+  async function loadPublicHospitals() {
+    const sel = document.getElementById('reg-hospital');
+    if (!sel) return;
+    const res = await apiGet('get_facilities_public.php');
+    if (res.ok && res.facilities?.length) {
+      sel.innerHTML = '<option value="">— Select your primary hospital —</option>'
+        + res.facilities.map(f =>
+            `<option value="${f.facility_id}">${f.name}${f.county ? ' — ' + f.county : ''}</option>`
+          ).join('');
+    } else {
+      sel.innerHTML = '<option value="">No hospitals registered yet</option>';
+    }
+  }
+
+  // Load hospitals when the "Create account" tab is first clicked
+  document.querySelectorAll('.seg-btn[data-pane="pane-register"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sel = document.getElementById('reg-hospital');
+      if (sel && sel.options.length <= 1) loadPublicHospitals();
+    });
+  });
+  // Also load immediately if the register pane starts active
+  if (document.getElementById('pane-register')?.classList.contains('active')) {
+    loadPublicHospitals();
+  }
+
+  // "Go to login" button on success card
+  document.getElementById('btn-reg-go-login')?.addEventListener('click', () => {
+    document.querySelectorAll('.seg-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.pane === 'pane-login'));
+    document.querySelectorAll('.auth-pane').forEach(p =>
+      p.classList.toggle('active', p.id === 'pane-login'));
+    // Reset register form for next use
+    document.getElementById('reg-success-card').hidden = true;
+    document.getElementById('reg-form-wrap').hidden = false;
+  });
+
+  const btnRegister = document.getElementById('btn-register');
+  if (btnRegister) {
+    btnRegister.addEventListener('click', async () => {
+      const full_name    = document.getElementById('reg-full-name')?.value.trim() || '';
+      const national_id  = document.getElementById('reg-national-id')?.value.trim() || '';
+      const facility_id  = document.getElementById('reg-hospital')?.value || '';
+      const dob          = document.getElementById('reg-dob')?.value || '';
+      const gender       = document.getElementById('reg-gender')?.value || '';
+      const phone        = document.getElementById('reg-phone')?.value.trim().replace(/\s/g,'') || '';
+      const email        = document.getElementById('reg-email')?.value.trim() || '';
+      const blood_type   = document.getElementById('reg-blood')?.value || '';
+      const allergies    = document.getElementById('reg-allergies')?.value.trim() || '';
+      const ec_name      = document.getElementById('reg-ec-name')?.value.trim() || '';
+      const ec_rel       = document.getElementById('reg-ec-rel')?.value || '';
+      const ec_phone     = document.getElementById('reg-ec-phone')?.value.trim().replace(/\s/g,'') || '';
+      const kin_name     = document.getElementById('reg-kin-name')?.value.trim() || '';
+      const kin_rel      = document.getElementById('reg-kin-rel')?.value || '';
+      const errEl        = document.getElementById('reg-error');
+      clearError(errEl);
+
+      if (!full_name)   { showError(errEl, 'Full name is required.'); return; }
+      if (full_name.length < 3) { showError(errEl, 'Full name must be at least 3 characters.'); return; }
+      if (!national_id) { showError(errEl, 'National ID is required.'); return; }
+      if (!/^\d{7,9}$/.test(national_id)) { showError(errEl, 'National ID must be 7–9 digits (numbers only).'); return; }
+      if (!facility_id) { showError(errEl, 'Please select your primary hospital.'); return; }
+      if (!dob)         { showError(errEl, 'Date of birth is required.'); return; }
+      if (dob > new Date().toISOString().split('T')[0]) { showError(errEl, 'Date of birth cannot be in the future.'); return; }
+      if (!gender)      { showError(errEl, 'Gender is required.'); return; }
+      if (!phone)       { showError(errEl, 'Phone number is required.'); return; }
+      if (!/^0[0-9]{9}$/.test(phone)) { showError(errEl, 'Enter a valid Kenyan phone number (e.g. 0712345678).'); return; }
+      if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) { showError(errEl, 'Invalid email address.'); return; }
+      if (!ec_name)     { showError(errEl, 'Emergency contact name is required.'); return; }
+      if (!ec_rel)      { showError(errEl, 'Emergency contact relationship is required.'); return; }
+      if (!ec_phone)    { showError(errEl, 'Emergency contact phone is required.'); return; }
+      if (!/^0[0-9]{9}$/.test(ec_phone)) { showError(errEl, 'Enter a valid Kenyan phone for emergency contact.'); return; }
+      if (!kin_name)    { showError(errEl, 'Next of kin name is required.'); return; }
+      if (!kin_rel)     { showError(errEl, 'Next of kin relationship is required.'); return; }
+
+      btnRegister.disabled = true; btnRegister.textContent = 'Creating account…';
+      const data = await apiPost('register_patient.php', {
+        full_name,
+        national_id,
+        facility_id,
+        date_of_birth: dob,
+        gender,
+        phone,
+        email,
+        blood_type,
+        allergies,
+        emergency_contact_name: ec_name,
+        emergency_contact_relationship: ec_rel,
+        emergency_contact_phone: ec_phone,
+        next_of_kin_name: kin_name,
+        next_of_kin_relationship: kin_rel,
+      });
+      btnRegister.disabled = false; btnRegister.textContent = 'Create patient account';
+
+      if (!data.ok) { showError(errEl, data.error, data._raw); return; }
+
+      // Show success card — hide form
+      document.getElementById('reg-form-wrap').hidden = true;
+      const sc = document.getElementById('reg-success-card');
+      sc.hidden = false;
+      document.getElementById('reg-success-hid').textContent = data.health_id;
+
+      const emailStatus = data.email_sent ? '✓ Email sent'  : '✗ Email not sent';
+      const smsStatus   = data.sms_sent   ? '✓ SMS sent'    : '✗ SMS not sent';
+      document.getElementById('reg-success-details').innerHTML =
+        `<strong>Name:</strong> ${data.full_name}<br>` +
+        `<strong>Primary hospital:</strong> ${data.facility_name}<br>` +
+        `<strong>Notifications:</strong> ${emailStatus} · ${smsStatus}<br>` +
+        `<em style="font-size:12px;">Your temporary password was sent via email/SMS. Change it on first login.</em>`;
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 //  PATIENT PAGE
 // ─────────────────────────────────────────────────────────────
 
@@ -274,7 +428,7 @@ if (document.getElementById('screen-patient')) {
     if (stats.ok) {
       setText('stat-records', stats.records);
       setText('stat-prescriptions', stats.prescriptions);
-      setText('patient-consent-count', stats.active_consents);
+      setText('patient-consent-count', stats.consents);
       if (stats.primary_hospital) {
         const hospEl = document.getElementById('patient-primary-hospital');
         if (hospEl) hospEl.textContent = 'Primary Hospital: ' + stats.primary_hospital;
@@ -565,7 +719,8 @@ if (document.getElementById('screen-doctor')) {
     _doctorCountdownTimer = setInterval(tick, 1000);
   }
 
-  // Poll for patient approval. When approved, show the OTP for doctor to type manually.
+  // Poll for patient approval. When approved, patient receives OTP via SMS —
+  // doctor must ask the patient for the code verbally and type it below.
   function startDoctorOtpPoll(patientId) {
     stopDoctorOtpPoll();
     async function poll() {
@@ -574,9 +729,9 @@ if (document.getElementById('screen-doctor')) {
       const statusEl = document.getElementById('doctor-otp-status');
 
       if (data.status === 'approved') {
-        // Patient approved — reveal OTP display and OTP entry form
+        // Patient approved — OTP was sent to patient's phone via SMS
         stopDoctorOtpPoll();
-        if (statusEl) statusEl.textContent = 'Patient approved. Type the code below to verify.';
+        if (statusEl) statusEl.textContent = 'Patient approved. Ask the patient for the code sent to their phone.';
 
         const titleEl = document.getElementById('otp-card-title');
         if (titleEl) titleEl.textContent = 'Access Approved';
@@ -584,14 +739,11 @@ if (document.getElementById('screen-doctor')) {
         const dotEl = document.getElementById('otp-card-dot');
         if (dotEl) { dotEl.classList.remove('dot-amber'); dotEl.classList.add('dot-sage'); }
 
-        // Display OTP prominently — doctor must type it manually
+        // Show the approved info block (explains that OTP went to patient's phone)
         const approvedBlock = document.getElementById('doctor-otp-approved-block');
         if (approvedBlock) approvedBlock.hidden = false;
 
-        const otpDisplay = document.getElementById('doctor-approved-otp');
-        if (otpDisplay && data.otp) otpDisplay.textContent = data.otp;
-
-        // Show the manual entry form — NOT pre-filled; do NOT auto-fill or auto-verify
+        // Show the manual entry form — doctor enters code received verbally from patient
         const entryEl = document.getElementById('doctor-otp-entry');
         if (entryEl) entryEl.hidden = false;
         document.getElementById('doctor-otp-input')?.focus();
@@ -1049,70 +1201,28 @@ if (document.getElementById('screen-hospital-admin')) {
 
   // ── Register patient ──────────────────────────────────────────
 
-  document.getElementById('btn-register-patient')?.addEventListener('click', async () => {
-    const full_name         = document.getElementById('ha-pt-name').value.trim();
-    const national_id       = document.getElementById('ha-pt-national-id').value.trim();
-    const phone             = document.getElementById('ha-pt-phone').value.trim();
-    const email             = document.getElementById('ha-pt-email').value.trim();
-    const date_of_birth     = document.getElementById('ha-pt-dob').value;
-    const gender            = document.getElementById('ha-pt-gender').value;
-    const blood_type        = document.getElementById('ha-pt-blood').value;
-    const allergies         = document.getElementById('ha-pt-allergies').value.trim();
-    const emergency_contact = document.getElementById('ha-pt-emergency').value.trim();
-    const next_of_kin       = document.getElementById('ha-pt-kin').value.trim();
-    const errEl             = document.getElementById('pt-reg-error');
-    clearError(errEl);
-
-    if (!full_name)          { showError(errEl, 'Full name is required.'); return; }
-    if (full_name.length < 3){ showError(errEl, 'Full name must be at least 3 characters.'); return; }
-    if (!national_id)        { showError(errEl, 'National ID is required.'); return; }
-    if (!/^\d{7,9}$/.test(national_id)) { showError(errEl, 'National ID must be 7–9 digits.'); return; }
-    if (!phone)              { showError(errEl, 'Phone number is required.'); return; }
-    if (!/^0[0-9]{9}$/.test(phone.replace(/\s/g,''))) { showError(errEl, 'Enter a valid Kenyan phone number (e.g. 0712345678).'); return; }
-    if (!date_of_birth)      { showError(errEl, 'Date of birth is required.'); return; }
-    if (!gender)             { showError(errEl, 'Gender is required.'); return; }
-    if (!emergency_contact)  { showError(errEl, 'Emergency contact is required.'); return; }
-    if (!next_of_kin)        { showError(errEl, 'Next of kin is required.'); return; }
-
-    const btn = document.getElementById('btn-register-patient');
-    btn.disabled = true; btn.textContent = 'Registering…';
-    const data = await apiPost('register_patient.php', {
-      full_name, national_id, phone, email, date_of_birth, gender,
-      blood_type, allergies, emergency_contact, next_of_kin
-    });
-    btn.disabled = false; btn.textContent = 'Register patient';
-
-    if (!data.ok) { showError(errEl, data.error || 'Registration failed.', data._raw); return; }
-
-    // Clear form
-    ['ha-pt-name','ha-pt-national-id','ha-pt-phone','ha-pt-email',
-     'ha-pt-dob','ha-pt-allergies','ha-pt-emergency','ha-pt-kin'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-    document.getElementById('ha-pt-gender').value = '';
-    document.getElementById('ha-pt-blood').value  = '';
-
-    showPatientCredModal('Patient account created', data.full_name, data.health_id, data.temp_password, data.email_sent);
-    await loadPatients();
-  });
+  // Patient registration moved to public login page (pane-register in login.html).
 
   // ── Patient credential modal ──────────────────────────────────
 
-  function showPatientCredModal(title, name, healthId, tempPassword, emailSent) {
+  function showPatientCredModal(title, name, healthId, facilityName, emailSent, smsSent) {
     document.getElementById('pt-cred-modal-title').textContent = title;
     setText('pt-cred-name', name);
     setText('pt-cred-health-id', healthId);
-    setText('pt-cred-password', tempPassword);
+    // Do NOT display the temporary password on screen — it was delivered via email/SMS
+    const pwEl = document.getElementById('pt-cred-password');
+    if (pwEl) { pwEl.textContent = '— delivered via email / SMS —'; pwEl.style.color = '#888'; }
+
+    setText('pt-cred-facility', facilityName || '—');
+
     const noteEl = document.getElementById('pt-cred-email-note');
-    if (emailSent) {
-      noteEl.textContent = '✓ Credentials have been emailed to the patient.';
+    if (noteEl) {
+      const emailStatus = emailSent ? '✓ Email sent' : '✗ Email not sent';
+      const smsStatus   = smsSent   ? '✓ SMS sent'   : '✗ SMS not sent';
+      noteEl.textContent = emailStatus + '  ·  ' + smsStatus;
       noteEl.hidden = false;
-    } else {
-      noteEl.hidden = true;
+      noteEl.style.color = (emailSent || smsSent) ? '#2d7a4f' : '#c0392b';
     }
-    // Store for print
-    document.getElementById('patient-cred-modal')._printData = { name, healthId, tempPassword };
     document.getElementById('patient-cred-modal').hidden = false;
   }
 

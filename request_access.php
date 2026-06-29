@@ -3,6 +3,7 @@
 // DOES NOT generate an OTP — that only happens when the patient approves (approve_otp.php).
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/sidecar.php';
+require_once __DIR__ . '/NotificationService.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_err('Method not allowed', 405);
 
@@ -70,6 +71,18 @@ sidecar_post('/anchorEvent', [
 ]);
 
 audit($doctor['user_id'], 'access_requested', "Patient: $patient_id | Reason: $reason");
+
+// SMS: notify the patient that a doctor has requested access (non-fatal)
+$pat_phone = db()->prepare('SELECT phone FROM patients WHERE user_id = ?');
+$pat_phone->execute([$patient_id]);
+$patient_phone = $pat_phone->fetchColumn() ?: null;
+
+// Get doctor full name for the SMS
+$doc_name_stmt = db()->prepare('SELECT full_name FROM doctors WHERE user_id = ?');
+$doc_name_stmt->execute([$doctor['user_id']]);
+$doctor_full_name = $doc_name_stmt->fetchColumn() ?: 'A doctor';
+
+(new NotificationService())->notifyConsentRequest($patient_phone, $doctor_full_name, $hospital_name);
 
 json_ok([
     'message' => 'Request sent. Waiting for patient to approve.',

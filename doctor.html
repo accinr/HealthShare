@@ -130,17 +130,17 @@
           <p class="pending-body" id="otp-card-body">The patient has been notified and must approve this request from their own dashboard.</p>
           <p class="pending-help" id="doctor-otp-status">Waiting for the patient to respond…</p>
 
-          <!-- Shown after patient approves: display OTP for doctor to read and manually type -->
+          <!-- Shown after patient approves: OTP was sent to patient via SMS — doctor must ask for it -->
           <div id="doctor-otp-approved-block" hidden style="margin-top:16px;padding:16px;background:var(--surface-alt,#f0ede6);border-radius:10px;">
-            <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Access Approved — One-Time Code</p>
-            <p class="mono" id="doctor-approved-otp" style="font-size:32px;font-weight:700;letter-spacing:.18em;margin:6px 0 2px;"></p>
-            <p style="font-size:12px;color:var(--muted,#888);margin:0;" id="doctor-otp-expiry"></p>
-            <p style="font-size:12px;margin:10px 0 0;color:var(--muted);">Type this code into the verification field below. Do not share it via insecure channels.</p>
+            <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Access Approved — Awaiting OTP</p>
+            <p style="font-size:14px;margin:8px 0 4px;color:var(--text,#1a1a1a);">A 6-digit verification code has been sent to the patient's phone via SMS.</p>
+            <p style="font-size:13px;margin:4px 0 0;color:var(--muted,#888);">Ask the patient for the code and enter it below.</p>
+            <p style="font-size:12px;color:var(--muted,#888);margin:8px 0 0;" id="doctor-otp-expiry"></p>
           </div>
 
-          <!-- OTP entry form: doctor must manually type the OTP -->
+          <!-- OTP entry form: doctor enters the code received verbally from the patient -->
           <div id="doctor-otp-entry" hidden style="margin-top:12px;">
-            <p class="pending-body" style="margin-bottom:8px;">Enter the one-time code shown above:</p>
+            <p class="pending-body" style="margin-bottom:8px;">Enter the code the patient received via SMS:</p>
             <div class="search-row">
               <input class="field-input mono" id="doctor-otp-input" type="text" maxlength="6"
                 placeholder="6-digit code" style="letter-spacing:.15em;font-size:20px;text-align:center;"

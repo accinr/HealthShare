@@ -5,7 +5,7 @@
 // NOTE: Does NOT modify blockchain logic — sidecar call is unchanged.
 
 require_once __DIR__ . '/helpers.php';
-require_once __DIR__ . '/send_mail.php';
+require_once __DIR__ . '/NotificationService.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_err('Method not allowed', 405);
 
@@ -74,8 +74,10 @@ sidecar_post('/registerEmergency', [
     'recordHash'     => hash('sha256', $staff_id . $emergency_token . $facility_id),
 ]);
 
-// Send credentials email via PHPMailer (non-fatal)
-$email_sent = send_credentials_email($email, $full_name, [
+// Send email + SMS via NotificationService (non-fatal)
+// Emergency personnel don't have a phone column yet — pass empty string
+$em_phone = '';
+$notif = (new NotificationService())->notifyStaffRegistered($email, $em_phone, $full_name, [
     'role'            => 'Emergency Personnel',
     'staff_id'        => $staff_id,
     'temp_password'   => $temp_password,
@@ -88,5 +90,6 @@ json_ok([
     'emergency_token' => $emergency_token,
     'temp_password'   => $temp_password,
     'full_name'       => $full_name,
-    'email_sent'      => $email_sent,
+    'email_sent'      => $notif['email_sent'],
+    'sms_sent'        => $notif['sms_sent'],
 ]);

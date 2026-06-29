@@ -29,12 +29,15 @@
 <div class="modal-overlay" id="patient-cred-modal" hidden>
   <div class="modal-card">
     <p class="modal-title" id="pt-cred-modal-title">Patient account created</p>
-    <p class="modal-body">Give these credentials to <strong id="pt-cred-name"></strong>. The temporary password <em>cannot be retrieved</em> after closing this window.</p>
-    <div class="cred-row"><span class="cred-label">Health ID</span><span class="cred-val mono" id="pt-cred-health-id"></span></div>
-    <div class="cred-row"><span class="cred-label">Temp password</span><span class="cred-val mono" id="pt-cred-password"></span></div>
-    <p class="modal-note" id="pt-cred-email-note" hidden></p>
-    <p class="modal-note">The patient must change this password on first login.</p>
-    <p class="modal-note">Patients are <strong>not</strong> expected to log in immediately.</p>
+    <div style="background:#edfaf3;border:1px solid #6fcf97;border-radius:8px;padding:14px 16px;margin-bottom:12px;">
+      <p style="margin:0 0 10px;font-weight:700;color:#1a5c38;">✓ Patient Registered Successfully</p>
+      <div class="cred-row"><span class="cred-label">Patient name</span><strong id="pt-cred-name"></strong></div>
+      <div class="cred-row"><span class="cred-label">Health ID</span><span class="cred-val mono" id="pt-cred-health-id"></span></div>
+      <div class="cred-row"><span class="cred-label">Primary hospital</span><span class="cred-val" id="pt-cred-facility"></span></div>
+      <div class="cred-row"><span class="cred-label">Temp password</span><span class="cred-val mono" id="pt-cred-password" style="color:#888;font-style:italic;"></span></div>
+    </div>
+    <p class="modal-note" id="pt-cred-email-note" style="font-weight:500;"></p>
+    <p class="modal-note">Login credentials were delivered via email and/or SMS. The patient must change their password on first login.</p>
     <div style="display:flex;gap:10px;margin-top:14px;">
       <button class="btn-primary full" id="btn-print-patient-cred">🖨 Print credentials</button>
       <button class="btn-primary full" id="btn-close-patient-cred-modal">Done</button>
@@ -67,8 +70,7 @@
     </div>
 
     <div class="tab-row" role="tablist">
-      <button class="tab-btn active" data-tab="ha-register-patient">Register patient</button>
-      <button class="tab-btn" data-tab="ha-patient-list">Patient list</button>
+      <button class="tab-btn active" data-tab="ha-patient-list">Patient list</button>
       <button class="tab-btn" data-tab="ha-register-doctor">Register doctor</button>
       <button class="tab-btn" data-tab="ha-emergency-staff">Emergency staff</button>
       <button class="tab-btn" data-tab="ha-doctor-list">Doctor list</button>
@@ -79,81 +81,8 @@
 
     <div class="two-col">
 
-      <!-- ── Register patient ── -->
-      <div class="tab-pane active" id="ha-register-patient">
-        <div class="panel">
-          <p class="panel-title">Register a patient</p>
-          <p class="panel-sub">The patient's primary hospital is automatically set to this facility.</p>
-
-          <div class="field-row">
-            <div class="field-col">
-              <label class="field-label" for="ha-pt-name">Full name <span style="color:#e74c3c">*</span></label>
-              <input class="field-input" id="ha-pt-name" type="text" placeholder="As on national ID">
-            </div>
-            <div class="field-col">
-              <label class="field-label" for="ha-pt-national-id">National ID <span style="color:#e74c3c">*</span></label>
-              <input class="field-input mono" id="ha-pt-national-id" type="text" placeholder="e.g. 34218765">
-            </div>
-          </div>
-
-          <div class="field-row">
-            <div class="field-col">
-              <label class="field-label" for="ha-pt-phone">Phone number <span style="color:#e74c3c">*</span></label>
-              <input class="field-input" id="ha-pt-phone" type="tel" placeholder="07XX XXX XXX">
-            </div>
-            <div class="field-col">
-              <label class="field-label" for="ha-pt-email">Email (optional)</label>
-              <input class="field-input" id="ha-pt-email" type="email" placeholder="patient@email.com">
-            </div>
-          </div>
-
-          <div class="field-row">
-            <div class="field-col">
-              <label class="field-label" for="ha-pt-dob">Date of birth <span style="color:#e74c3c">*</span></label>
-              <input class="field-input" id="ha-pt-dob" type="date">
-            </div>
-            <div class="field-col">
-              <label class="field-label" for="ha-pt-gender">Gender <span style="color:#e74c3c">*</span></label>
-              <select class="field-input" id="ha-pt-gender">
-                <option value="">— Select —</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-                <option value="Prefer not to say">Prefer not to say</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="field-row">
-            <div class="field-col">
-              <label class="field-label" for="ha-pt-blood">Blood group (optional)</label>
-              <select class="field-input" id="ha-pt-blood">
-                <option value="">— Unknown —</option>
-                <option>A+</option><option>A−</option>
-                <option>B+</option><option>B−</option>
-                <option>AB+</option><option>AB−</option>
-                <option>O+</option><option>O−</option>
-              </select>
-            </div>
-            <div class="field-col">
-              <label class="field-label" for="ha-pt-allergies">Allergies (optional)</label>
-              <input class="field-input" id="ha-pt-allergies" type="text" placeholder="e.g. Penicillin, Peanuts">
-            </div>
-          </div>
-
-          <label class="field-label" for="ha-pt-emergency">Emergency contact <span style="color:#e74c3c">*</span></label>
-          <input class="field-input" id="ha-pt-emergency" type="text" placeholder="Name and phone, e.g. Jane Doe — 0722 000 111">
-
-          <label class="field-label" for="ha-pt-kin">Next of kin <span style="color:#e74c3c">*</span></label>
-          <input class="field-input" id="ha-pt-kin" type="text" placeholder="Name and relationship, e.g. John Doe (Brother)">
-
-          <p class="auth-error" id="pt-reg-error" hidden></p>
-          <button class="btn-primary full" id="btn-register-patient">Register patient</button>
-        </div>
-      </div>
-
       <!-- ── Patient list ── -->
-      <div class="tab-pane" id="ha-patient-list">
+      <div class="tab-pane active" id="ha-patient-list">
         <div class="panel">
           <p class="panel-title">Registered patients</p>
           <table class="data-table">

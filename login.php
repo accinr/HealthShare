@@ -26,6 +26,26 @@ $role_map = [
 $db_role = $role_map[$role] ?? null;
 if (!$db_role) json_err('Unknown role.');
 
+// For patient role: also resolve login by national ID or phone number
+if ($db_role === 'patient' && !preg_match('/^KE-HID-/i', $user_id)) {
+    $resolved_id = null;
+    // Numeric 7-9 digits → national ID
+    if (preg_match('/^\d{7,9}$/', $user_id)) {
+        $r = db()->prepare('SELECT user_id FROM patients WHERE national_id = ? LIMIT 1');
+        $r->execute([$user_id]);
+        $resolved_id = $r->fetchColumn() ?: null;
+    }
+    // Kenyan phone format 07XXXXXXXXX or 01XXXXXXXXX
+    if (!$resolved_id && preg_match('/^0[0-9]{9}$/', $user_id)) {
+        $r = db()->prepare('SELECT user_id FROM patients WHERE phone = ? LIMIT 1');
+        $r->execute([$user_id]);
+        $resolved_id = $r->fetchColumn() ?: null;
+    }
+    if ($resolved_id) {
+        $user_id = $resolved_id;
+    }
+}
+
 // Look up user
 $stmt = db()->prepare('SELECT * FROM users WHERE user_id = ? AND role = ?');
 $stmt->execute([$user_id, $db_role]);

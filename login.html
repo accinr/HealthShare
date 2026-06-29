@@ -39,6 +39,14 @@
   .hid-value { font-size: 1.5rem; font-weight: 700; letter-spacing: .08em;
     color: #1a5c38; margin-bottom: 8px; }
   .hid-note  { font-size: 12px; color: #3a7a56; line-height: 1.5; }
+  .pat-login-btn {
+    flex: 1; padding: 6px 0; border: 1.5px solid #d0ccc4; border-radius: 6px;
+    background: #fff; cursor: pointer; font-size: 12px; font-weight: 500;
+    color: #666; transition: all .15s;
+  }
+  .pat-login-btn.active {
+    background: var(--ink, #1a1a1a); color: #fff; border-color: var(--ink, #1a1a1a);
+  }
 </style>
 </head>
 <body>
@@ -55,6 +63,7 @@
 
       <div class="seg-toggle" role="tablist">
         <button class="seg-btn active" data-pane="pane-login" role="tab">Log in</button>
+        <button class="seg-btn" data-pane="pane-register" role="tab">Create account</button>
       </div>
 
       <!-- ══════════════════════════════════
@@ -80,6 +89,15 @@
           </div>
         </div>
 
+        <!-- Patient login method selector (hidden for non-patient roles) -->
+        <div id="patient-login-method" hidden>
+          <label class="field-label">Login with</label>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button type="button" class="pat-login-btn active" data-method="health_id">Health ID</button>
+            <button type="button" class="pat-login-btn" data-method="national_id">National ID</button>
+            <button type="button" class="pat-login-btn" data-method="phone">Phone</button>
+          </div>
+        </div>
         <label class="field-label" for="login-id">
           <span id="login-id-label">Health ID</span>
         </label>
@@ -99,20 +117,123 @@
       </div>
 
       <!-- ══════════════════════════════════
-           REGISTER PANE  (replaced — patients registered by hospital staff)
+           REGISTER PANE — Patient self-registration
       ══════════════════════════════════ -->
       <div class="auth-pane" id="pane-register">
-        <div class="role-hint">
-          <span class="role-hint-icon">🏥</span>
+
+        <!-- Representative note -->
+        <div class="role-hint" style="margin-bottom:16px;">
+          <span class="role-hint-icon">ℹ️</span>
           <div>
-            <strong>Patient registration</strong>
-            Patients are registered by hospital staff during their first hospital visit.
+            <strong>Patient account</strong>
+            This account may be created by the patient or by an authorized representative
+            (parent, guardian, spouse, family member, caregiver, or hospital staff)
+            using the patient's details. The account always belongs to the patient.
           </div>
         </div>
-        <p class="auth-switch">
-          Already registered? <a href="#" data-pane="pane-login" class="link-switch">Log in</a>
-        </p>
-      </div>
+
+        <!-- Hidden success card shown after registration -->
+        <div id="reg-success-card" hidden style="background:#edfaf3;border:1px solid #6fcf97;border-radius:10px;padding:18px 16px;margin-bottom:16px;">
+          <p style="margin:0 0 10px;font-weight:700;color:#1a5c38;font-size:15px;">✓ Account Created Successfully</p>
+          <div style="margin-bottom:6px;"><span style="font-size:12px;color:#2d7a4f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Health ID</span></div>
+          <div id="reg-success-hid" style="font-size:1.4rem;font-weight:700;letter-spacing:.1em;color:#1a5c38;margin-bottom:10px;font-family:monospace;"></div>
+          <div id="reg-success-details" style="font-size:13px;color:#2d7a4f;line-height:1.7;"></div>
+          <p style="margin:12px 0 0;font-size:12px;color:#3a7a56;">Please save your Health ID. You will need it to log in.</p>
+          <button class="btn-primary full" style="margin-top:14px;" id="btn-reg-go-login">Go to login</button>
+        </div>
+
+        <div id="reg-form-wrap">
+          <label class="field-label" for="reg-full-name">Full name <span style="color:#e74c3c">*</span></label>
+          <input class="field-input" id="reg-full-name" type="text" placeholder="As on national ID" autocomplete="name">
+
+          <label class="field-label" for="reg-national-id">National ID <span style="color:#e74c3c">*</span></label>
+          <input class="field-input mono" id="reg-national-id" type="text" placeholder="e.g. 34218765" autocomplete="off">
+
+          <label class="field-label" for="reg-hospital">Primary hospital <span style="color:#e74c3c">*</span></label>
+          <select class="field-input" id="reg-hospital">
+            <option value="">— Loading hospitals… —</option>
+          </select>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="field-label" for="reg-dob">Date of birth <span style="color:#e74c3c">*</span></label>
+              <input class="field-input" id="reg-dob" type="date">
+            </div>
+            <div>
+              <label class="field-label" for="reg-gender">Gender <span style="color:#e74c3c">*</span></label>
+              <select class="field-input" id="reg-gender">
+                <option value="">— Select —</option>
+                <option>Male</option><option>Female</option>
+                <option>Other</option><option>Prefer not to say</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="field-label" for="reg-phone">Phone number <span style="color:#e74c3c">*</span></label>
+          <input class="field-input" id="reg-phone" type="tel" placeholder="07XX XXX XXX" autocomplete="tel">
+
+          <label class="field-label" for="reg-email">Email address (optional)</label>
+          <input class="field-input" id="reg-email" type="email" placeholder="patient@email.com" autocomplete="email">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="field-label" for="reg-blood">Blood group (optional)</label>
+              <select class="field-input" id="reg-blood">
+                <option value="">— Unknown —</option>
+                <option>A+</option><option>A−</option><option>B+</option><option>B−</option>
+                <option>AB+</option><option>AB−</option><option>O+</option><option>O−</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="reg-allergies">Allergies (optional)</label>
+              <input class="field-input" id="reg-allergies" type="text" placeholder="e.g. Penicillin">
+            </div>
+          </div>
+
+          <!-- Emergency contact -->
+          <p style="margin:14px 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#666;">Emergency contact</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="field-label" for="reg-ec-name">Full name <span style="color:#e74c3c">*</span></label>
+              <input class="field-input" id="reg-ec-name" type="text" placeholder="e.g. Jane Doe">
+            </div>
+            <div>
+              <label class="field-label" for="reg-ec-rel">Relationship <span style="color:#e74c3c">*</span></label>
+              <select class="field-input" id="reg-ec-rel">
+                <option value="">— Select —</option>
+                <option>Spouse</option><option>Parent</option><option>Child</option>
+                <option>Sibling</option><option>Guardian</option><option>Friend</option><option>Other</option>
+              </select>
+            </div>
+          </div>
+          <label class="field-label" for="reg-ec-phone">Emergency contact phone <span style="color:#e74c3c">*</span></label>
+          <input class="field-input" id="reg-ec-phone" type="tel" placeholder="07XX XXX XXX">
+
+          <!-- Next of kin -->
+          <p style="margin:14px 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#666;">Next of kin</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="field-label" for="reg-kin-name">Full name <span style="color:#e74c3c">*</span></label>
+              <input class="field-input" id="reg-kin-name" type="text" placeholder="e.g. John Doe">
+            </div>
+            <div>
+              <label class="field-label" for="reg-kin-rel">Relationship <span style="color:#e74c3c">*</span></label>
+              <select class="field-input" id="reg-kin-rel">
+                <option value="">— Select —</option>
+                <option>Spouse</option><option>Parent</option><option>Child</option>
+                <option>Sibling</option><option>Guardian</option><option>Friend</option><option>Other</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="auth-error" id="reg-error" hidden></p>
+          <div class="debug-box" id="reg-debug" hidden></div>
+          <button class="btn-primary full" id="btn-register" style="margin-top:6px;">Create patient account</button>
+          <p class="auth-switch" style="margin-top:12px;">
+            Already registered? <a href="#" data-pane="pane-login" class="link-switch">Log in</a>
+          </p>
+        </div><!-- /reg-form-wrap -->
+      </div><!-- /pane-register -->
 
     </div><!-- /auth-card -->
   </div>
